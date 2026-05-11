@@ -108,17 +108,24 @@ export async function GET(req: NextRequest) {
         const weekStart = req.nextUrl.searchParams.get("weekStart")
         const { start, end, label: weekLabel } = getWeekRange(weekStart)
         
-        // Widen start by 12 hours to handle timezone drifts between Local/Vercel
+        // If searching the current week, extend 'end' to exactly 'now' 
+        // to catch trends found in the last few hours.
+        const now = new Date()
+        const actualEnd = (now.getTime() > start.getTime() && now.getTime() < end.getTime() + 86400000) 
+          ? now 
+          : end
+
+        // Widen start by 12 hours for timezone safety
         const safeStart = new Date(start)
         safeStart.setHours(safeStart.getHours() - 12)
 
-        console.log(`[Digest] Fetching trends from ${safeStart.toISOString()} to ${end.toISOString()} (Week: ${weekLabel})`)
+        console.log(`[Digest] Fetching trends from ${safeStart.toISOString()} to ${actualEnd.toISOString()} (Week: ${weekLabel})`)
 
         const { data: trends, error } = await supabase
           .from("trends")
           .select("*")
           .gte("found_at", safeStart.toISOString())
-          .lte("found_at", end.toISOString())
+          .lte("found_at", actualEnd.toISOString())
           .order("found_at", { ascending: false })
           .limit(200)
 
