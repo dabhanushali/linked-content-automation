@@ -101,15 +101,25 @@ export async function GET(req: NextRequest) {
         // 1. Fetch trends for the requested week
         const weekStart = req.nextUrl.searchParams.get("weekStart")
         const { start, end, label: weekLabel } = getWeekRange(weekStart)
+        
+        // Widen start by 12 hours to handle timezone drifts between Local/Vercel
+        const safeStart = new Date(start)
+        safeStart.setHours(safeStart.getHours() - 12)
+
+        console.log(`[Digest] Fetching trends from ${safeStart.toISOString()} to ${end.toISOString()} (Week: ${weekLabel})`)
+
         const { data: trends, error } = await supabase
           .from("trends")
           .select("*")
-          .gte("found_at", start.toISOString())
+          .gte("found_at", safeStart.toISOString())
           .lte("found_at", end.toISOString())
           .order("found_at", { ascending: false })
           .limit(200)
 
-        if (error) throw new Error("Failed to fetch trends: " + error.message)
+        if (error) {
+          console.error("[Digest] Supabase query error:", error)
+          throw new Error("Failed to fetch trends: " + error.message)
+        }
 
         const allTrends = trends ?? []
         // Sort web trends by relevanceScore descending for signal prioritization
