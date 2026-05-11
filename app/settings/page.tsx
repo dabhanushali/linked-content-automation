@@ -99,47 +99,55 @@ export default function SettingsPage() {
 
   const addTopic = () => {
     if (!newTopic.trim() || !settings) return
-    setSettings({ ...settings, topic_clusters: [...settings.topic_clusters, newTopic.trim()] })
+    const current = settings.topic_clusters || []
+    setSettings({ ...settings, topic_clusters: [...current, newTopic.trim()] })
     setNewTopic("")
   }
 
-  const removeTopic = (i: number) => {
+  const removeTopic = (index: number) => {
     if (!settings) return
-    setSettings({ ...settings, topic_clusters: settings.topic_clusters.filter((_, idx) => idx !== i) })
+    const current = settings.topic_clusters || []
+    setSettings({ ...settings, topic_clusters: current.filter((_, i) => i !== index) })
   }
 
   const addCompetitor = () => {
     if (!newCompetitor.trim() || !settings) return
-    setSettings({ ...settings, competitors: [...settings.competitors, newCompetitor.trim()] })
+    const current = settings.competitors || []
+    setSettings({ ...settings, competitors: [...current, newCompetitor.trim()] })
     setNewCompetitor("")
   }
 
-  const removeCompetitor = (i: number) => {
+  const removeCompetitor = (index: number) => {
     if (!settings) return
-    setSettings({ ...settings, competitors: settings.competitors.filter((_, idx) => idx !== i) })
+    const current = settings.competitors || []
+    setSettings({ ...settings, competitors: current.filter((_, i) => i !== index) })
   }
 
   const addSource = () => {
     if (!newSource.trim() || !settings) return
-    setSettings({ ...settings, trend_sources: [...(settings.trend_sources ?? []), newSource.trim()] })
+    const current = settings.trend_sources || []
+    setSettings({ ...settings, trend_sources: [...current, newSource.trim()] })
     setNewSource("")
   }
 
-  const removeSource = (i: number) => {
+  const removeSource = (index: number) => {
     if (!settings) return
-    setSettings({ ...settings, trend_sources: (settings.trend_sources ?? []).filter((_, idx) => idx !== i) })
+    const current = settings.trend_sources || []
+    setSettings({ ...settings, trend_sources: current.filter((_, i) => i !== index) })
   }
 
   const addSubreddit = () => {
     if (!newSubreddit.trim() || !settings) return
     const name = newSubreddit.trim().replace(/^r\//, "")
-    setSettings({ ...settings, subreddits: [...(settings.subreddits ?? []), name] })
+    const current = settings.subreddits || []
+    setSettings({ ...settings, subreddits: [...current, name] })
     setNewSubreddit("")
   }
 
-  const removeSubreddit = (i: number) => {
+  const removeSubreddit = (index: number) => {
     if (!settings) return
-    setSettings({ ...settings, subreddits: (settings.subreddits ?? []).filter((_, idx) => idx !== i) })
+    const current = settings.subreddits || []
+    setSettings({ ...settings, subreddits: current.filter((_, i) => i !== index) })
   }
 
   const handleAddUrl = async () => {
@@ -333,13 +341,14 @@ export default function SettingsPage() {
       </div>
 
       <Tabs defaultValue="brand">
-        <TabsList className="grid w-full grid-cols-5">
+        <TabsList className="grid w-full grid-cols-4 lg:grid-cols-7">
           <TabsTrigger value="brand">Brand</TabsTrigger>
-          <TabsTrigger value="topics">Topics & Competitors</TabsTrigger>
-          <TabsTrigger value="sources">News Sources</TabsTrigger>
-          <TabsTrigger value="knowledge">Knowledge Base</TabsTrigger>
+          <TabsTrigger value="topics">Topics</TabsTrigger>
+          <TabsTrigger value="sources">Sources</TabsTrigger>
+          <TabsTrigger value="knowledge">Knowledge</TabsTrigger>
           <TabsTrigger value="examples" onClick={() => { if (!examples.length) handleLoadExamples() }}>Examples</TabsTrigger>
-          <TabsTrigger value="prompt" onClick={() => { if (!systemPrompt) handleLoadPrompt() }}>System Prompt</TabsTrigger>
+          <TabsTrigger value="templates">Templates</TabsTrigger>
+          <TabsTrigger value="prompt" onClick={() => { if (!systemPrompt) handleLoadPrompt() }}>Assembled</TabsTrigger>
         </TabsList>
 
         {/* Brand Tab */}
@@ -861,6 +870,97 @@ export default function SettingsPage() {
               ))}
             </div>
           )}
+        </TabsContent>
+
+        {/* Templates Tab */}
+        <TabsContent value="templates" className="space-y-6 mt-6">
+          <Card className="bg-card border-border">
+            <CardHeader>
+              <CardTitle className="text-base">System Prompt Template</CardTitle>
+              <CardDescription>
+                The base instructions for the AI. Use <code className="bg-muted px-1 rounded">{"{{harvey_profile}}"}</code>, <code className="bg-muted px-1 rounded">{"{{icp}}"}</code>, <code className="bg-muted px-1 rounded">{"{{voice_rules}}"}</code>, <code className="bg-muted px-1 rounded">{"{{knowledge_base}}"}</code>, and <code className="bg-muted px-1 rounded">{"{{writing_examples}}"}</code> as placeholders.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <Textarea
+                value={settings.content_system_prompt || ""}
+                onChange={(e) => setSettings({ ...settings, content_system_prompt: e.target.value })}
+                rows={8}
+                placeholder="You are Harvey's content AI..."
+                className="font-mono text-xs"
+              />
+            </CardContent>
+          </Card>
+
+          <Card className="bg-card border-border">
+            <CardHeader>
+              <CardTitle className="text-base">Post Scorer Prompt</CardTitle>
+              <CardDescription>Instructions for analyzing post quality.</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <Textarea
+                value={settings.post_scorer_prompt || ""}
+                onChange={(e) => setSettings({ ...settings, post_scorer_prompt: e.target.value })}
+                rows={8}
+                placeholder="You are a LinkedIn post quality analyst..."
+                className="font-mono text-xs"
+              />
+            </CardContent>
+          </Card>
+
+          <Card className="bg-card border-border">
+            <CardHeader>
+              <CardTitle className="text-base">Reddit Comment Template</CardTitle>
+              <CardDescription>
+                Placeholders: <code className="bg-muted px-1 rounded">{"{{trendTitle}}"}</code>, <code className="bg-muted px-1 rounded">{"{{threadContext}}"}</code>, <code className="bg-muted px-1 rounded">{"{{archetypeSelection}}"}</code>, <code className="bg-muted px-1 rounded">{"{{archetypeList}}"}</code>, <code className="bg-muted px-1 rounded">{"{{harveyRules}}"}</code>, <code className="bg-muted px-1 rounded">{"{{commentSize}}"}</code>
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <Textarea
+                value={settings.reddit_comment_prompt || ""}
+                onChange={(e) => setSettings({ ...settings, reddit_comment_prompt: e.target.value })}
+                rows={8}
+                placeholder="You are writing a Reddit comment..."
+                className="font-mono text-xs"
+              />
+            </CardContent>
+          </Card>
+
+          <Card className="bg-card border-border">
+            <CardHeader>
+              <CardTitle className="text-base">LinkedIn Comment Template</CardTitle>
+              <CardDescription>
+                Placeholders: <code className="bg-muted px-1 rounded">{"{{postContent}}"}</code>, <code className="bg-muted px-1 rounded">{"{{archetypeSelection}}"}</code>, <code className="bg-muted px-1 rounded">{"{{archetypeList}}"}</code>
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <Textarea
+                value={settings.linkedin_comment_prompt || ""}
+                onChange={(e) => setSettings({ ...settings, linkedin_comment_prompt: e.target.value })}
+                rows={8}
+                placeholder="You are writing a LinkedIn comment..."
+                className="font-mono text-xs"
+              />
+            </CardContent>
+          </Card>
+
+          <Card className="bg-card border-border">
+            <CardHeader>
+              <CardTitle className="text-base">Trend Search Template</CardTitle>
+              <CardDescription>
+                How AI searches for trends. Placeholder: <code className="bg-muted px-1 rounded">{"{{topicClusters}}"}</code>
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <Textarea
+                value={settings.trend_search_prompt || ""}
+                onChange={(e) => setSettings({ ...settings, trend_search_prompt: e.target.value })}
+                rows={8}
+                placeholder="Search for the top 10 trending topics..."
+                className="font-mono text-xs"
+              />
+            </CardContent>
+          </Card>
         </TabsContent>
 
         <TabsContent value="prompt" className="space-y-6 mt-6">

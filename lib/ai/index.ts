@@ -12,10 +12,10 @@ export function resolveProvider(requested?: AIProvider): AIProvider {
   return preferred
 }
 
-export async function fetchWebSearchTrends(topicClusters: string[], provider: AIProvider): Promise<Trend[]> {
+export async function fetchWebSearchTrends(topicClusters: string[], provider: AIProvider, customPrompt?: string): Promise<Trend[]> {
   return provider === "openai"
-    ? openai.fetchWebSearchTrends(topicClusters)
-    : anthropic.fetchWebSearchTrends(topicClusters)
+    ? openai.fetchWebSearchTrends(topicClusters, customPrompt)
+    : anthropic.fetchWebSearchTrends(topicClusters, customPrompt)
 }
 
 export async function analyzeRedditTrends(posts: RedditPost[], provider: AIProvider): Promise<Trend[]> {

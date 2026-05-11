@@ -4,12 +4,10 @@ import { RedditPost } from "@/lib/reddit"
 
 const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY })
 
-export async function fetchWebSearchTrends(topicClusters: string[]): Promise<Trend[]> {
-  const response = await client.responses.create({
-    model: "gpt-4o",
-    max_output_tokens: 8000,
-    tools: [{ type: "web_search_preview", search_context_size: "high" } as any],
-    input: `Search for the top 20 trending topics RIGHT NOW in AI sales, B2B sales technology, and sales automation in 2026.
+export async function fetchWebSearchTrends(topicClusters: string[], customPrompt?: string): Promise<Trend[]> {
+  const userPrompt = customPrompt
+    ? customPrompt.replace("{{topicClusters}}", topicClusters.join(", "))
+    : `Search for the top 20 trending topics RIGHT NOW in AI sales, B2B sales technology, and sales automation in 2026.
 
 Search for topics related to: ${topicClusters.join(", ")}.
 
@@ -18,7 +16,13 @@ Prioritise sources from TechCrunch, VentureBeat, Gartner, Forrester, McKinsey, H
 Return ONLY a JSON array of exactly 20 trend objects with source_url where available:
 [{ "id": "ws-1", "title": "...", "summary": "...", "source": "Web Search", "relevanceScore": 8, "velocity": "hot", "source_url": "https://..." }]
 
-Rules: id prefixed "ws-", relevanceScore 0-10, velocity: hot/rising/stable. Return ONLY the JSON array.`,
+Rules: id prefixed "ws-", relevanceScore 0-10, velocity: hot/rising/stable. Return ONLY the JSON array.`
+
+  const response = await client.responses.create({
+    model: "gpt-4o",
+    max_output_tokens: 8000,
+    tools: [{ type: "web_search_preview", search_context_size: "high" } as any],
+    input: userPrompt,
   } as any)
 
   const text = (response as any).output_text ?? ""

@@ -56,9 +56,9 @@ export async function POST(req: NextRequest) {
   const settings = await getSettings()
   const provider = resolveProvider(settings?.ai_provider as AIProvider)
 
-  try {
+    const systemPrompt = settings?.post_scorer_prompt || SCORE_PROMPT
     const text = await generatePosts(
-      SCORE_PROMPT,
+      systemPrompt,
       `Score this LinkedIn post:\n\n${content}`,
       provider
     )

@@ -73,16 +73,30 @@ export async function POST(req: NextRequest) {
     }
   }
 
-  const userPrompt = `You are writing a Reddit comment for a B2B sales / AI tools thread.
+  let userPrompt = ""
+  const harveyRules = noHarvey
+    ? "- RD-003: Do NOT mention Harvey, any AI tool, or any specific product. Focus entirely on providing genuine value."
+    : "- RD-003: If you mention Harvey, add disclosure: \"disclosure: I'm building this\"\n- RD-004: If Harvey is mentioned, also list 2+ competitor alternatives (e.g. Salesloft, Apollo, Clay)\n- RD-008: Harvey mention must be <10% of total word count — focus on providing value"
+  const archetypeSelection = autoMode
+    ? `First, choose the BEST archetype for this thread from the list below. Return your choice as "recommendedArchetype".`
+    : `Use the archetype: **${archetype}**`
+
+  if (settings?.reddit_comment_prompt) {
+    userPrompt = settings.reddit_comment_prompt
+      .replace("{{trendTitle}}", trendTitle)
+      .replace("{{threadContext}}", threadContext || (trendSummary ? `Thread summary: ${trendSummary}` : ""))
+      .replace("{{archetypeSelection}}", archetypeSelection)
+      .replace("{{archetypeList}}", archetypeList)
+      .replace("{{harveyRules}}", harveyRules)
+      .replace("{{commentSize}}", sizeMap[commentSize])
+  } else {
+    userPrompt = `You are writing a Reddit comment for a B2B sales / AI tools thread.
 
 Thread topic: "${trendTitle}"
 ${threadContext || (trendSummary ? `Thread summary: ${trendSummary}` : "")}
 ${!thread && trendUrl ? `Thread URL: ${trendUrl}` : ""}
 
-${autoMode
-    ? `First, choose the BEST archetype for this thread from the list below. Return your choice as "recommendedArchetype".`
-    : `Use the archetype: **${archetype}**`
-  }
+${archetypeSelection}
 
 Available archetypes:
 ${archetypeList}
@@ -90,10 +104,7 @@ ${archetypeList}
 REDDIT COMPLIANCE RULES (mandatory):
 - RD-001: NO direct links of any kind
 - RD-002: NO corporate language (leverage, synergize, scalable solution, game-changer, etc.)
-${noHarvey
-  ? "- RD-003: Do NOT mention Harvey, any AI tool, or any specific product. Focus entirely on providing genuine value."
-  : "- RD-003: If you mention Harvey, add disclosure: \"disclosure: I'm building this\"\n- RD-004: If Harvey is mentioned, also list 2+ competitor alternatives (e.g. Salesloft, Apollo, Clay)\n- RD-008: Harvey mention must be <10% of total word count — focus on providing value"
-}
+${harveyRules}
 - RD-005: NO emojis, NO hashtags
 - RD-006: Length must be ${sizeMap[commentSize]} — this overrides archetype word count defaults
 - RD-007: Use Reddit-native formatting: **bold** for key terms, numbered lists, line breaks between paragraphs
@@ -112,6 +123,7 @@ Return ONLY valid JSON:
   "wordCount": 145,
   "recommendedArchetype": "same as archetype if auto-selected, or null if archetype was specified"
 }`
+  }
 
   try {
     const text = await generatePosts(systemPrompt, userPrompt, provider)

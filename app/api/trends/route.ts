@@ -202,7 +202,7 @@ export async function GET(req: NextRequest) {
       new Promise((resolve) => setTimeout(() => resolve(fallback), ms))
 
     const [webTrends, redditTrends] = await Promise.allSettled([
-      Promise.race([fetchWebSearchTrends(topicClusters, provider), timeout(55_000, [] as Trend[])]),
+      Promise.race([fetchWebSearchTrends(topicClusters, provider, settings?.trend_search_prompt), timeout(55_000, [] as Trend[])]),
       redditPosts.length > 0
         ? Promise.race([analyzeRedditTrends(redditPosts, provider), timeout(15_000, [] as Trend[])])
         : Promise.resolve([] as Trend[]),

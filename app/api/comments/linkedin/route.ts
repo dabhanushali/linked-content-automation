@@ -60,17 +60,25 @@ export async function POST(req: NextRequest) {
 
   const autoMode = !archetype || archetype === "auto"
 
-  const userPrompt = `You are writing a LinkedIn comment in Harvey's voice.
+  let userPrompt = ""
+  const archetypeSelection = autoMode
+    ? `First, choose the BEST archetype for this post from the list below. Return your choice as "recommendedArchetype". Then generate 2 variants: one using the recommended archetype, and one using a different complementary archetype.`
+    : `Use the archetype: **${archetype}**. Generate 2 variants both using this archetype with different angles.`
+
+  if (settings?.linkedin_comment_prompt) {
+    userPrompt = settings.linkedin_comment_prompt
+      .replace("{{postContent}}", postContent)
+      .replace("{{archetypeSelection}}", archetypeSelection)
+      .replace("{{archetypeList}}", archetypeList)
+  } else {
+    userPrompt = `You are writing a LinkedIn comment in Harvey's voice.
 
 Original LinkedIn post:
 """
 ${postContent}
 """
 
-${autoMode
-    ? `First, choose the BEST archetype for this post from the list below. Return your choice as "recommendedArchetype". Then generate 2 variants: one using the recommended archetype, and one using a different complementary archetype.`
-    : `Use the archetype: **${archetype}**. Generate 2 variants both using this archetype with different angles.`
-  }
+${archetypeSelection}
 
 Available archetypes:
 ${archetypeList}
@@ -104,6 +112,7 @@ Return ONLY valid JSON:
   ],
   "recommendedArchetype": "archetype name if auto-selected, or null"
 }`
+  }
 
   try {
     const text = await generatePosts(systemPrompt, userPrompt, provider)

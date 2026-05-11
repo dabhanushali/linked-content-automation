@@ -4,17 +4,11 @@ import { RedditPost } from "@/lib/reddit"
 
 const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
 
-export async function fetchWebSearchTrends(topicClusters: string[]): Promise<Trend[]> {
+export async function fetchWebSearchTrends(topicClusters: string[], customPrompt?: string): Promise<Trend[]> {
   let response: any
-  try {
-    response = await client.beta.messages.create({
-      model: "claude-sonnet-4-6",
-      max_tokens: 4096,
-      betas: ["web-search-2025-03-05" as any],
-      tools: [{ type: "web_search_20250305", name: "web_search", max_uses: 2 } as any],
-      messages: [{
-        role: "user",
-        content: `Search for the top 10 trending topics RIGHT NOW in AI sales, B2B sales technology, and sales automation in 2026.
+  const userPrompt = customPrompt 
+    ? customPrompt.replace("{{topicClusters}}", topicClusters.join(", "))
+    : `Search for the top 10 trending topics RIGHT NOW in AI sales, B2B sales technology, and sales automation in 2026.
 
 Search for topics related to: ${topicClusters.join(", ")}.
 
@@ -23,7 +17,17 @@ Prioritise sources from TechCrunch, VentureBeat, Gartner, Forrester, McKinsey, H
 Return ONLY a JSON array of exactly 10 trend objects with source_url where available:
 [{ "id": "ws-1", "title": "...", "summary": "...", "source": "Web Search", "relevanceScore": 8, "velocity": "hot", "source_url": "https://..." }]
 
-Rules: id prefixed "ws-", relevanceScore 0-10, velocity: hot/rising/stable. Return ONLY the JSON array.`,
+Rules: id prefixed "ws-", relevanceScore 0-10, velocity: hot/rising/stable. Return ONLY the JSON array.`
+
+  try {
+    response = await client.beta.messages.create({
+      model: "claude-sonnet-4-6",
+      max_tokens: 4096,
+      betas: ["web-search-2025-03-05" as any],
+      tools: [{ type: "web_search_20250305", name: "web_search", max_uses: 2 } as any],
+      messages: [{
+        role: "user",
+        content: userPrompt,
       }],
     })
   } catch (err: any) {

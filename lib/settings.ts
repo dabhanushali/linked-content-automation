@@ -11,6 +11,11 @@ export interface Settings {
   trend_sources?: string[]
   trend_refresh_time?: string
   subreddits?: string[]
+  content_system_prompt?: string
+  post_scorer_prompt?: string
+  reddit_comment_prompt?: string
+  linkedin_comment_prompt?: string
+  trend_search_prompt?: string
 }
 
 export interface KnowledgeItem {
@@ -92,26 +97,33 @@ export function invalidateSystemPromptCache(): void {
 }
 
 export async function buildSystemPrompt(settings: Settings, knowledgeItems: KnowledgeItem[], tone?: string): Promise<string> {
-  let prompt = `You are Harvey's content AI.
+  const DEFAULT_TEMPLATE = `You are Harvey's content AI.
 
 About Harvey:
-${settings.harvey_profile}
+{{harvey_profile}}
 
 Target Customer (ICP):
-${settings.icp}
+{{icp}}
 
 Voice & Style Rules:
-${settings.voice_rules}`
+{{voice_rules}}
 
+{{knowledge_base}}
+
+{{writing_examples}}`
+
+  let template = settings.content_system_prompt || DEFAULT_TEMPLATE
+
+  // 1. Process Knowledge Base
+  let kbContext = ""
   if (knowledgeItems.length > 0) {
     const CHARS_PER_ITEM = 4000
     const MAX_ITEMS = 10
     const TOTAL_BUDGET = 20000
 
-    // Most recently added items first (array comes from DB ordered by created_at DESC)
     const selectedItems = knowledgeItems.slice(0, MAX_ITEMS)
     let totalChars = 0
-    const context = selectedItems
+    kbContext = selectedItems
       .filter((item) => {
         const chars = Math.min(item.content.length, CHARS_PER_ITEM)
         if (totalChars + chars > TOTAL_BUDGET) return false
@@ -120,49 +132,55 @@ ${settings.voice_rules}`
       })
       .map((item) => `--- ${item.name} ---\n${item.content.slice(0, CHARS_PER_ITEM)}`)
       .join("\n\n")
-
-    prompt += `\n\nAdditional company context:\n${context}`
+    
+    if (kbContext) {
+      kbContext = `Additional company context:\n${kbContext}`
+    }
   }
 
-  // Inject writing examples if available — own posts first (voice), then curated (structure)
+  // 2. Process Writing Examples
+  let examplesContext = ""
   const examples = await getPostExamples()
   if (examples.length > 0) {
     const ownExamples = examples.filter(e => e.source === "own")
     const curatedExamples = examples.filter(e => e.source !== "own")
 
-    // Own voice: prioritize tone match, up to 4 posts
     const ownToneMatches = tone ? ownExamples.filter(e => e.tone === tone).slice(0, 4) : []
     const ownOthers = ownExamples.filter(e => e.tone !== tone).slice(0, 4 - ownToneMatches.length)
     const selectedOwn = [...ownToneMatches, ...ownOthers]
 
-    // Curated structural templates: fill remaining budget up to 8 total
     const remaining = 8 - selectedOwn.length
     const curatedToneMatches = tone ? curatedExamples.filter(e => e.tone === tone).slice(0, remaining) : []
     const curatedOthers = curatedExamples.filter(e => e.tone !== tone).slice(0, remaining - curatedToneMatches.length)
     const selectedCurated = [...curatedToneMatches, ...curatedOthers].slice(0, remaining)
 
     if (selectedOwn.length > 0) {
-      prompt += `\n\nYOUR OWN VOICE — these are posts you've written. Match this exact writing style, vocabulary, and sentence rhythm:\n\n`
+      examplesContext += `YOUR OWN VOICE — match this exact writing style:\n\n`
       for (const ex of selectedOwn) {
-        const meta = [ex.tone, ex.hook_type, ex.reactions != null ? `${ex.reactions} reactions` : null]
-          .filter(Boolean).join(" | ")
-        prompt += `[${meta}]\n`
-        if (ex.why_it_works) prompt += `WHY IT WORKS: ${ex.why_it_works}\n`
-        prompt += `---\n${ex.content}\n\n`
+        const meta = [ex.tone, ex.hook_type, ex.reactions != null ? `${ex.reactions} reactions` : null].filter(Boolean).join(" | ")
+        examplesContext += `[${meta}]\n`
+        if (ex.why_it_works) examplesContext += `WHY IT WORKS: ${ex.why_it_works}\n`
+        examplesContext += `---\n${ex.content}\n\n`
       }
     }
 
     if (selectedCurated.length > 0) {
-      prompt += `\n\nSTRUCTURAL TEMPLATES — study these high-performing posts for structure and hooks, then adapt to your own voice:\n\n`
+      examplesContext += `STRUCTURAL TEMPLATES — study these for patterns:\n\n`
       for (const ex of selectedCurated) {
-        const meta = [ex.tone, ex.hook_type, ex.reactions != null ? `${ex.reactions} reactions` : null]
-          .filter(Boolean).join(" | ")
-        prompt += `[${meta}]\n`
-        if (ex.why_it_works) prompt += `WHY IT WORKS: ${ex.why_it_works}\n`
-        prompt += `---\n${ex.content}\n\n`
+        const meta = [ex.tone, ex.hook_type, ex.reactions != null ? `${ex.reactions} reactions` : null].filter(Boolean).join(" | ")
+        examplesContext += `[${meta}]\n`
+        if (ex.why_it_works) examplesContext += `WHY IT WORKS: ${ex.why_it_works}\n`
+        examplesContext += `---\n${ex.content}\n\n`
       }
     }
   }
 
-  return prompt
+  // 3. Assemble Final Prompt
+  return template
+    .replace("{{harvey_profile}}", settings.harvey_profile || "")
+    .replace("{{icp}}", settings.icp || "")
+    .replace("{{voice_rules}}", settings.voice_rules || "")
+    .replace("{{knowledge_base}}", kbContext)
+    .replace("{{writing_examples}}", examplesContext)
+    .trim()
 }

@@ -80,3 +80,51 @@ create policy "anon can update source_cache"
   on source_cache for update to anon
   using (true)
   with check (true);
+
+-- ── trends ───────────────────────────────────────────────────────────────────
+alter table trends enable row level security;
+
+create policy "anon can read trends"
+  on trends for select to anon
+  using (true);
+
+create policy "anon can insert trends"
+  on trends for insert to anon
+  with check (true);
+
+-- ── comments ─────────────────────────────────────────────────────────────────
+alter table comments enable row level security;
+
+create policy "anon can read comments"
+  on comments for select to anon
+  using (true);
+
+create policy "anon can insert comments"
+  on comments for insert to anon
+  with check (true);
+
+create policy "anon can delete comments"
+  on comments for delete to anon
+  using (true);
+
+-- ── post_examples ────────────────────────────────────────────────────────────
+alter table post_examples enable row level security;
+
+create policy "anon can read post_examples"
+  on post_examples for select to anon
+  using (true);
+
+-- ── digests ──────────────────────────────────────────────────────────────────
+alter table digests enable row level security;
+
+create policy "anon can read digests"
+  on digests for select to anon
+  using (true);
+
+create policy "anon can insert digests"
+  on digests for insert to anon
+  with check (true);
+
+create policy "anon can delete digests"
+  on digests for delete to anon
+  using (true);
