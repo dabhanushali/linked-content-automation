@@ -8,18 +8,24 @@ import { DigestResult, WebFinding, PainPoint, HarveyRelevancePoint } from "@/lib
 function getWeekRange(weekStart?: string | null): { start: Date; end: Date; label: string } {
   const fmt = (d: Date) =>
     d.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })
+  
+  let start: Date
   if (weekStart) {
-    const start = new Date(weekStart)
-    const end = new Date(start)
-    end.setDate(end.getDate() + 7)
-    end.setHours(23, 59, 59, 999)
-    return { start, end, label: `${fmt(start)} – ${fmt(end)}` }
+    start = new Date(weekStart)
+  } else {
+    // Default to last 7 full days
+    start = new Date()
+    start.setDate(start.getDate() - 7)
   }
-  const now = new Date()
-  const start = new Date(now)
-  start.setDate(start.getDate() - 7)
-  start.setHours(0, 0, 0, 0)
-  return { start, end: now, label: `${fmt(start)} – ${fmt(now)}` }
+
+  // Ensure start is at the beginning of its day (UTC) to avoid timezone jitter
+  start.setUTCHours(0, 0, 0, 0)
+  
+  const end = new Date(start)
+  end.setDate(end.getDate() + 7)
+  end.setUTCHours(23, 59, 59, 999)
+
+  return { start, end, label: `${fmt(start)} – ${fmt(end)}` }
 }
 
 function truncate(s: string, n: number) {
@@ -138,7 +144,10 @@ export async function GET(req: NextRequest) {
         })
 
         if (allTrends.length === 0) {
-          send(controller, { type: "error", message: "No trends found for this period. Try a different week or refresh the dashboard first." })
+          send(controller, { 
+            type: "error", 
+            message: `No trends found from ${safeStart.toLocaleDateString()} to ${end.toLocaleDateString()}. Try refreshing the dashboard trends first.` 
+          })
           controller.close()
           return
         }
