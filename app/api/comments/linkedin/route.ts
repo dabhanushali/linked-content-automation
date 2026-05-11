@@ -62,8 +62,8 @@ export async function POST(req: NextRequest) {
 
   let userPrompt = ""
   const archetypeSelection = autoMode
-    ? `First, choose the BEST archetype for this post from the list below. Return your choice as "recommendedArchetype". Then generate 2 variants: one using the recommended archetype, and one using a different complementary archetype.`
-    : `Use the archetype: **${archetype}**. Generate 2 variants both using this archetype with different angles.`
+    ? `Select the most appropriate archetype from the list below and include it in the JSON as "recommendedArchetype". Generate 2 variants: one using the recommended archetype, and one using a complementary one.`
+    : `Generate 2 variants using the "**${archetype}**" archetype with different angles.`
 
   if (settings?.linkedin_comment_prompt) {
     userPrompt = settings.linkedin_comment_prompt
@@ -115,19 +115,25 @@ Return ONLY valid JSON:
   }
 
   try {
+    console.log("[LinkedIn] Generating with provider:", provider)
+    console.log("[LinkedIn] User Prompt Preview:", userPrompt.slice(0, 200) + "...")
+
     const text = await generatePosts(systemPrompt, userPrompt, provider)
+    
     const jsonMatch = text.match(/\{[\s\S]*\}/)
     if (!jsonMatch) {
-      console.error("LinkedIn AI Raw Response (No JSON found):", text)
-      throw new Error("No JSON in response")
+      console.error("[LinkedIn] No JSON found in response. Raw text:", text)
+      throw new Error("AI returned a non-JSON response. Check your custom template.")
     }
+    
     const result = JSON.parse(jsonMatch[0])
     return NextResponse.json(result)
   } catch (err) {
-    console.error("LinkedIn comment error:", err)
+    console.error("[LinkedIn] Generation error:", err)
     return NextResponse.json({ 
       error: "Comment generation failed",
-      details: err instanceof Error ? err.message : String(err)
+      details: err instanceof Error ? err.message : String(err),
+      hint: "Ensure your custom template includes 'Return ONLY valid JSON' and the expected JSON structure."
     }, { status: 500 })
   }
 }

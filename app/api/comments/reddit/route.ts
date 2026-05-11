@@ -78,8 +78,8 @@ export async function POST(req: NextRequest) {
     ? "- RD-003: Do NOT mention Harvey, any AI tool, or any specific product. Focus entirely on providing genuine value."
     : "- RD-003: If you mention Harvey, add disclosure: \"disclosure: I'm building this\"\n- RD-004: If Harvey is mentioned, also list 2+ competitor alternatives (e.g. Salesloft, Apollo, Clay)\n- RD-008: Harvey mention must be <10% of total word count — focus on providing value"
   const archetypeSelection = autoMode
-    ? `First, choose the BEST archetype for this thread from the list below. Return your choice as "recommendedArchetype".`
-    : `Use the archetype: **${archetype}**`
+    ? `Select the most appropriate archetype from the list below and include it in the JSON as "recommendedArchetype".`
+    : `Follow the instructions for the "**${archetype}**" archetype.`
 
   if (settings?.reddit_comment_prompt) {
     userPrompt = settings.reddit_comment_prompt
@@ -126,19 +126,25 @@ Return ONLY valid JSON:
   }
 
   try {
+    console.log("[Reddit] Generating with provider:", provider)
+    console.log("[Reddit] User Prompt Preview:", userPrompt.slice(0, 200) + "...")
+    
     const text = await generatePosts(systemPrompt, userPrompt, provider)
+    
     const jsonMatch = text.match(/\{[\s\S]*\}/)
     if (!jsonMatch) {
-      console.error("Reddit AI Raw Response (No JSON found):", text)
-      throw new Error("No JSON in response")
+      console.error("[Reddit] No JSON found in response. Raw text:", text)
+      throw new Error("AI returned a non-JSON response. Check your custom template.")
     }
+    
     const result = JSON.parse(jsonMatch[0])
     return NextResponse.json(result)
   } catch (err) {
-    console.error("Reddit comment error:", err)
+    console.error("[Reddit] Generation error:", err)
     return NextResponse.json({ 
       error: "Comment generation failed", 
-      details: err instanceof Error ? err.message : String(err)
+      details: err instanceof Error ? err.message : String(err),
+      hint: "Ensure your custom template includes 'Return ONLY valid JSON' and the expected JSON structure."
     }, { status: 500 })
   }
 }
