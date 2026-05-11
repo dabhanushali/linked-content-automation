@@ -128,12 +128,17 @@ Return ONLY valid JSON:
   try {
     const text = await generatePosts(systemPrompt, userPrompt, provider)
     const jsonMatch = text.match(/\{[\s\S]*\}/)
-    if (!jsonMatch) throw new Error("No JSON in response")
+    if (!jsonMatch) {
+      console.error("Reddit AI Raw Response (No JSON found):", text)
+      throw new Error("No JSON in response")
+    }
     const result = JSON.parse(jsonMatch[0])
-
     return NextResponse.json(result)
   } catch (err) {
     console.error("Reddit comment error:", err)
-    return NextResponse.json({ error: "Comment generation failed" }, { status: 500 })
+    return NextResponse.json({ 
+      error: "Comment generation failed", 
+      details: err instanceof Error ? err.message : String(err)
+    }, { status: 500 })
   }
 }
