@@ -3,14 +3,15 @@
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { cn } from "@/lib/utils"
-import { LayoutDashboard, PenLine, History, Settings, Search, MessageSquare } from "lucide-react"
+import { LayoutDashboard, PenLine, History, Settings, Search, MessageSquare, Hash } from "lucide-react"
 import { ThemeToggle } from "./theme-toggle"
 
 const navItems = [
   { href: "/", label: "Dashboard", icon: LayoutDashboard },
-  { href: "/generate", label: "Generate Posts", icon: PenLine },
-  { href: "/research", label: "News Digest", icon: Search },
+  { href: "/generate", label: "Generate", icon: PenLine },
+  { href: "/research", label: "Research", icon: Search },
   { href: "/comments", label: "Comments", icon: MessageSquare },
+  { href: "/reddit", label: "Reddit", icon: Hash },
   { href: "/history", label: "History", icon: History },
   { href: "/settings", label: "Settings", icon: Settings },
 ]
@@ -19,14 +20,17 @@ export function Navigation() {
   const pathname = usePathname()
 
   return (
-    <header className="sticky top-0 z-50 border-b border-border bg-sidebar">
-      <div className="container mx-auto max-w-7xl px-4">
-        <div className="flex h-14 items-center justify-between">
-          <Link href="/" className="flex items-center gap-2">
-            <span className="text-xl font-bold text-foreground">Harvey</span>
+    <header className="sticky top-0 z-50 border-b border-sidebar-border bg-sidebar">
+      <div className="max-w-7xl mx-auto px-6">
+        <div className="flex h-12 items-center justify-between">
+          <Link href="/" className="flex items-center gap-2.5">
+            <div className="h-6 w-6 rounded-md bg-sidebar-primary flex items-center justify-center">
+              <span className="text-xs font-bold text-sidebar-primary-foreground">H</span>
+            </div>
+            <span className="text-sm font-semibold text-sidebar-foreground tracking-tight">Harvey</span>
           </Link>
-          <div className="flex items-center gap-2">
-            <nav className="flex items-center gap-1">
+          <div className="flex items-center gap-1">
+            <nav className="flex items-center">
               {navItems.map((item) => {
                 const isActive = pathname === item.href ||
                   (item.href !== "/" && pathname.startsWith(item.href))
@@ -35,19 +39,19 @@ export function Navigation() {
                     key={item.href}
                     href={item.href}
                     className={cn(
-                      "flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium transition-colors",
+                      "flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-xs font-medium transition-all duration-150",
                       isActive
-                        ? "bg-accent text-foreground"
-                        : "text-muted-foreground hover:bg-accent hover:text-foreground"
+                        ? "bg-sidebar-accent text-sidebar-primary"
+                        : "text-sidebar-foreground/70 hover:text-sidebar-foreground hover:bg-sidebar-accent/50"
                     )}
                   >
-                    <item.icon className="h-4 w-4" />
-                    <span className="hidden sm:inline">{item.label}</span>
+                    <item.icon className="h-3.5 w-3.5" />
+                    <span className="hidden md:inline">{item.label}</span>
                   </Link>
                 )
               })}
             </nav>
-            <div className="ml-2 pl-2 border-l border-border/50">
+            <div className="ml-2 pl-2 border-l border-sidebar-border/50">
               <ThemeToggle />
             </div>
           </div>

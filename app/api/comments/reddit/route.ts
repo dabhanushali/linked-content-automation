@@ -4,6 +4,14 @@ import { generatePosts, resolveProvider, AIProvider } from "@/lib/ai"
 import { checkRateLimit, getRateLimitKey } from "@/lib/rate-limit"
 import { RedditCommentRequestSchema } from "@/lib/schemas"
 import { fetchRedditThread } from "@/lib/reddit"
+import { supabase } from "@/lib/supabase/client"
+import { buildRedditCommentPrompt } from "@/lib/reddit/prompt-builder"
+import {
+  RedditIdentity,
+  RedditTone,
+  GlobalPrompt,
+  CommentTemplate,
+} from "@/lib/reddit/types"
 
 const REDDIT_ARCHETYPES = {
   "Detailed Helper": {
@@ -33,6 +41,21 @@ const REDDIT_ARCHETYPES = {
   },
 }
 
+// Map archetype display names to internal keys
+const ARCHETYPE_KEY_MAP: Record<string, string> = {
+  "Detailed Helper": "detailed_helper",
+  "Tool Roundup": "tool_roundup",
+  "Storyteller": "storyteller",
+  "Myth Buster": "myth_buster",
+  "Mini-Guide": "mini_guide",
+  detailed_helper: "detailed_helper",
+  tool_roundup: "tool_roundup",
+  storyteller: "storyteller",
+  myth_buster: "myth_buster",
+  mini_guide: "mini_guide",
+  auto: "auto",
+}
+
 export async function POST(req: NextRequest) {
   const rl = checkRateLimit(getRateLimitKey(req, "comments"), 20, 60_000)
   if (!rl.allowed) {
@@ -46,6 +69,11 @@ export async function POST(req: NextRequest) {
   }
   const { trendTitle, trendSummary, trendUrl, archetype, noHarvey, commentSize } = parsed.data
 
+  // Optional enhanced fields for identity/tone/template integration
+  const identityId: string | undefined = body.identity_id
+  const toneId: string | undefined = body.tone_id
+  const templateId: string | undefined = body.template_id
+
   const sizeMap = { short: "50–100 words", medium: "100–200 words", long: "200–350 words" }
 
   const isRedditUrl = trendUrl && (trendUrl.includes("reddit.com") || trendUrl.includes("redd.it"))
@@ -55,6 +83,89 @@ export async function POST(req: NextRequest) {
     isRedditUrl ? fetchRedditThread(trendUrl) : Promise.resolve(null),
   ])
   const provider = resolveProvider(settings?.ai_provider as AIProvider)
+
+  // If identity_id or tone_id is provided, use the enhanced prompt builder
+  if (identityId || toneId) {
+    try {
+      // Fetch identity
+      let identity: RedditIdentity | null = null
+      if (identityId) {
+        const { data } = await supabase
+          .from("reddit_identities")
+          .select("*")
+          .eq("id", identityId)
+          .single()
+        identity = data
+      }
+
+      // Fetch tone
+      let tone: RedditTone | null = null
+      if (toneId) {
+        const { data } = await supabase
+          .from("reddit_tones")
+          .select("*")
+          .eq("id", toneId)
+          .single()
+        tone = data
+      }
+
+      // Fetch global prompt
+      let globalPrompt: GlobalPrompt | null = null
+      const { data: gpData } = await supabase
+        .from("reddit_global_prompt")
+        .select("*")
+        .eq("is_active", true)
+        .single()
+      globalPrompt = gpData
+
+      // Fetch template
+      let template: CommentTemplate | null = null
+      if (templateId) {
+        const { data } = await supabase
+          .from("reddit_comment_templates")
+          .select("*")
+          .eq("id", templateId)
+          .single()
+        template = data
+      }
+
+      // Map archetype to internal key
+      const archetypeKey = ARCHETYPE_KEY_MAP[archetype || "auto"] || "auto"
+
+      // Build top comments array
+      const topComments: string[] = thread?.topComments
+        ? thread.topComments.map((c) => `u/${c.author} (${c.score} upvotes): ${c.body}`)
+        : []
+
+      const { systemPrompt: enhancedSystem, userPrompt: enhancedUser } = buildRedditCommentPrompt({
+        threadTitle: trendTitle,
+        threadBody: thread?.body || trendSummary || "",
+        topComments,
+        identity,
+        tone,
+        globalPrompt,
+        archetype: archetypeKey,
+        size: commentSize,
+        template,
+      })
+
+      const text = await generatePosts(enhancedSystem, enhancedUser, provider)
+      const jsonMatch = text.match(/\{[\s\S]*\}/)
+      if (!jsonMatch) {
+        throw new Error("AI returned a non-JSON response.")
+      }
+      const result = JSON.parse(jsonMatch[0])
+      return NextResponse.json(result)
+    } catch (err) {
+      console.error("[Reddit Enhanced Comment] Error:", err)
+      return NextResponse.json({
+        error: "Comment generation failed",
+        details: err instanceof Error ? err.message : String(err),
+      }, { status: 500 })
+    }
+  }
+
+  // Fallback: original behavior without identity/tone
   const systemPrompt = settings ? await buildSystemPrompt(settings, knowledgeItems) : ""
 
   const archetypeList = Object.entries(REDDIT_ARCHETYPES)

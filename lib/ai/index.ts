@@ -35,3 +35,9 @@ export async function extractPdf(file: File, provider: AIProvider): Promise<stri
     ? openai.extractPdfWithOpenAI(file)
     : anthropic.extractPdfWithAnthropic(file)
 }
+
+export async function cleanSubredditRules(rawRules: string, provider: AIProvider): Promise<string> {
+  const systemPrompt = `You are a text cleaning assistant. Your job is to take raw subreddit rules and reformat them into a clean, concise summary that can be used as context for content generation. Remove redundant text, fix formatting, and organize the rules clearly. Output ONLY the cleaned rules text, nothing else.`
+  const userPrompt = `Clean and organize these subreddit rules:\n\n${rawRules}`
+  return generatePosts(systemPrompt, userPrompt, provider)
+}

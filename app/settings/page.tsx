@@ -12,6 +12,7 @@ import { Separator } from "@/components/ui/separator"
 import { toast } from "@/hooks/use-toast"
 import { Loader2, Plus, X, Trash2, FileText, Globe, Save, RefreshCw, Sparkles } from "lucide-react"
 import { Settings, KnowledgeItem, PostExample } from "@/lib/settings"
+import { RedditSettingsPanel } from "@/components/reddit-settings-panel"
 
 // Moscow is UTC+3
 function moscowTimeFromUtc(utcTime: string): string {
@@ -326,22 +327,22 @@ export default function SettingsPage() {
   }
 
   return (
-    <div className="space-y-8 max-w-3xl">
+    <div className="space-y-6 max-w-3xl animate-fade-in">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-foreground tracking-tight">Settings</h1>
-          <p className="text-muted-foreground mt-1">
-            Configure Harvey's brand, topics, and knowledge base
+          <h1 className="text-xl font-semibold text-foreground tracking-tight">Settings</h1>
+          <p className="text-sm text-muted-foreground mt-1">
+            Configure Harvey&apos;s brand, topics, and knowledge base
           </p>
         </div>
-        <Button onClick={handleSave} disabled={saving}>
-          {saving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
+        <Button onClick={handleSave} disabled={saving} className="h-9">
+          {saving ? <Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" /> : <Save className="mr-2 h-3.5 w-3.5" />}
           Save Changes
         </Button>
       </div>
 
       <Tabs defaultValue="brand">
-        <TabsList className="grid w-full grid-cols-4 lg:grid-cols-7">
+        <TabsList className="grid w-full grid-cols-4 lg:grid-cols-8">
           <TabsTrigger value="brand">Brand</TabsTrigger>
           <TabsTrigger value="topics">Topics</TabsTrigger>
           <TabsTrigger value="sources">Sources</TabsTrigger>
@@ -349,6 +350,7 @@ export default function SettingsPage() {
           <TabsTrigger value="examples" onClick={() => { if (!examples.length) handleLoadExamples() }}>Examples</TabsTrigger>
           <TabsTrigger value="templates">Templates</TabsTrigger>
           <TabsTrigger value="prompt" onClick={() => { if (!systemPrompt) handleLoadPrompt() }}>Assembled</TabsTrigger>
+          <TabsTrigger value="reddit">Reddit</TabsTrigger>
         </TabsList>
 
         {/* Brand Tab */}
@@ -993,6 +995,11 @@ export default function SettingsPage() {
               )}
             </CardContent>
           </Card>
+        </TabsContent>
+
+        {/* Reddit Tab */}
+        <TabsContent value="reddit" className="space-y-6 mt-6">
+          <RedditSettingsPanel />
         </TabsContent>
       </Tabs>
     </div>

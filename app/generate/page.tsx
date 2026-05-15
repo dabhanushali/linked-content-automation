@@ -16,6 +16,7 @@ import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Slider } from "@/components/ui/slider"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Label } from "@/components/ui/label"
+import { Separator } from "@/components/ui/separator"
 import { PostCard } from "@/components/post-card"
 import { CarouselCard } from "@/components/carousel-card"
 import { Trend, GeneratedPost, Language, Tone, PostSize } from "@/lib/types"
@@ -73,17 +74,21 @@ function GenerateContent() {
   // Empty state — no topic selected
   if (!trendId) {
     return (
-      <div className="flex flex-col items-center justify-center py-24 text-center">
-        <div className="rounded-full bg-muted p-4 mb-4">
-          <LayoutDashboard className="h-8 w-8 text-muted-foreground" />
-        </div>
-        <h2 className="text-lg font-medium text-foreground mb-2">No topic selected</h2>
-        <p className="text-sm text-muted-foreground mb-6 max-w-sm">
-          Go to the dashboard, pick a trending topic, and click "Generate Posts".
-        </p>
-        <Button asChild>
-          <Link href="/">Browse Trends</Link>
-        </Button>
+      <div className="flex flex-col items-center justify-center py-24 text-center animate-fade-in">
+        <Card className="border-dashed border-border/60 max-w-sm w-full">
+          <CardContent className="flex flex-col items-center justify-center py-12">
+            <div className="rounded-full bg-muted p-4 mb-4">
+              <LayoutDashboard className="h-8 w-8 text-muted-foreground" />
+            </div>
+            <h2 className="text-sm font-semibold text-foreground mb-2">No topic selected</h2>
+            <p className="text-xs text-muted-foreground mb-6 max-w-sm">
+              Go to the dashboard, pick a trending topic, and click "Generate Posts".
+            </p>
+            <Button asChild size="sm">
+              <Link href="/">Browse Trends</Link>
+            </Button>
+          </CardContent>
+        </Card>
       </div>
     )
   }
@@ -146,58 +151,60 @@ function GenerateContent() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 animate-fade-in">
       <div className="flex items-center gap-4">
         <Link
           href="/"
-          className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors"
+          className="flex items-center gap-2 text-xs text-muted-foreground hover:text-foreground transition-all duration-150"
         >
-          <ArrowLeft className="h-4 w-4" />
+          <ArrowLeft className="h-3.5 w-3.5" />
           Change topic
         </Link>
       </div>
 
-      <div className="grid gap-6 lg:grid-cols-[400px_1fr]">
+      <div className="grid gap-6 lg:grid-cols-[400px_1fr] animate-slide-up">
         {/* Left Panel - Controls */}
         <div className="space-y-6">
-          <Card className="bg-card border-border">
-            <CardHeader>
-              <CardTitle className="text-lg">Post Settings</CardTitle>
+          <Card className="border-border/60">
+            <CardHeader className="pb-4">
+              <CardTitle className="text-sm font-semibold">Post Settings</CardTitle>
             </CardHeader>
-            <CardContent className="space-y-6">
+            <CardContent className="space-y-4">
               {/* Selected Trend */}
               {selectedTrend ? (
-                <div className="rounded-lg bg-muted p-4">
-                  <p className="text-xs text-muted-foreground uppercase tracking-wider mb-1">
+                <div className="rounded-lg bg-muted/40 border border-border/40 p-3">
+                  <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground mb-1">
                     Selected Topic
                   </p>
-                  <p className="font-medium text-foreground">{selectedTrend.title}</p>
+                  <p className="text-sm font-medium text-foreground">{selectedTrend.title}</p>
                 </div>
               ) : (
-                <div className="rounded-lg bg-muted p-4 animate-pulse">
-                  <p className="text-xs text-muted-foreground uppercase tracking-wider mb-1">
+                <div className="rounded-lg bg-muted/40 border border-border/40 p-3 animate-pulse">
+                  <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground mb-1">
                     Selected Topic
                   </p>
-                  <p className="text-sm text-muted-foreground">Loading topic...</p>
+                  <div className="h-4 w-3/4 bg-muted rounded" />
                 </div>
               )}
 
+              <Separator />
+
               {/* Language Toggle */}
-              <div className="space-y-2">
-                <Label className="text-sm text-muted-foreground">Language</Label>
+              <div className="space-y-1.5">
+                <label className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Language</label>
                 <Tabs value={language} onValueChange={(v) => setLanguage(v as Language)}>
-                  <TabsList className="grid w-full grid-cols-2">
-                    <TabsTrigger value="EN">English</TabsTrigger>
-                    <TabsTrigger value="RU">Russian</TabsTrigger>
+                  <TabsList className="grid w-full grid-cols-2 h-8">
+                    <TabsTrigger value="EN" className="text-xs">English</TabsTrigger>
+                    <TabsTrigger value="RU" className="text-xs">Russian</TabsTrigger>
                   </TabsList>
                 </Tabs>
               </div>
 
               {/* Tone Selector */}
-              <div className="space-y-2">
-                <Label className="text-sm text-muted-foreground">Tone</Label>
+              <div className="space-y-1.5">
+                <label className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Tone</label>
                 <Select value={tone} onValueChange={(v) => setTone(v as Tone)}>
-                  <SelectTrigger>
+                  <SelectTrigger className="h-9">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -208,19 +215,18 @@ function GenerateContent() {
                     ))}
                   </SelectContent>
                 </Select>
+                <p className="text-xs text-muted-foreground">{toneDescriptions[tone]}</p>
               </div>
 
-              <p className="text-xs text-muted-foreground -mt-4">{toneDescriptions[tone]}</p>
-
               {/* Post Size */}
-              <div className="space-y-2">
-                <Label className="text-sm text-muted-foreground">Post Format</Label>
+              <div className="space-y-1.5">
+                <label className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Post Format</label>
                 <Tabs value={postSize} onValueChange={(v) => setPostSize(v as PostSize)}>
-                  <TabsList className="grid w-full grid-cols-4">
-                    <TabsTrigger value="Short">Short</TabsTrigger>
-                    <TabsTrigger value="Medium">Medium</TabsTrigger>
-                    <TabsTrigger value="Long">Long</TabsTrigger>
-                    <TabsTrigger value="Carousel">Carousel</TabsTrigger>
+                  <TabsList className="grid w-full grid-cols-4 h-8">
+                    <TabsTrigger value="Short" className="text-xs">Short</TabsTrigger>
+                    <TabsTrigger value="Medium" className="text-xs">Medium</TabsTrigger>
+                    <TabsTrigger value="Long" className="text-xs">Long</TabsTrigger>
+                    <TabsTrigger value="Carousel" className="text-xs">Carousel</TabsTrigger>
                   </TabsList>
                 </Tabs>
                 <p className="text-xs text-muted-foreground">
@@ -231,9 +237,11 @@ function GenerateContent() {
                 </p>
               </div>
 
+              <Separator />
+
               {/* User Guidance */}
-              <div className="space-y-2">
-                <Label className="text-sm text-muted-foreground">Additional guidance <span className="text-xs">(optional)</span></Label>
+              <div className="space-y-1.5">
+                <label className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Additional guidance <span className="normal-case font-normal">(optional)</span></label>
                 <Textarea
                   value={userGuidance}
                   onChange={(e) => setUserGuidance(e.target.value)}
@@ -243,22 +251,24 @@ function GenerateContent() {
               </div>
 
               {/* Manual Article Content */}
-              <div className="space-y-2">
-                <Label className="text-sm text-muted-foreground">
-                  Full article content <span className="text-xs">(optional — paste if source is paywalled or blocked)</span>
-                </Label>
+              <div className="space-y-1.5">
+                <label className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                  Full article content <span className="normal-case font-normal">(optional — paste if source is paywalled)</span>
+                </label>
                 <Textarea
                   value={manualContent}
                   onChange={(e) => setManualContent(e.target.value)}
                   placeholder="Paste the full article text here..."
-                  className="resize-none text-sm min-h-[120px]"
+                  className="resize-none text-sm min-h-[100px]"
                 />
               </div>
+
+              <Separator />
 
               {/* Humanity Level */}
               <div className="space-y-3">
                 <div className="flex items-center justify-between">
-                  <Label className="text-sm text-muted-foreground">Humanity Level</Label>
+                  <label className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Humanity Level</label>
                   <span className="text-xs text-muted-foreground">{humanityLabels[humanityLevel[0]]}</span>
                 </div>
                 <Slider
@@ -275,10 +285,10 @@ function GenerateContent() {
               </div>
 
               {/* Post Count Slider */}
-              <div className="space-y-4">
+              <div className="space-y-3">
                 <div className="flex items-center justify-between">
-                  <Label className="text-sm text-muted-foreground">Number of Posts</Label>
-                  <span className="text-sm font-medium text-foreground">{postCount[0]}</span>
+                  <label className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Number of Posts</label>
+                  <span className="text-xs font-medium text-foreground">{postCount[0]}</span>
                 </div>
                 <Slider
                   value={postCount}
@@ -298,7 +308,7 @@ function GenerateContent() {
                 />
                 <Label
                   htmlFor="competitor"
-                  className="text-sm text-muted-foreground cursor-pointer"
+                  className="text-xs text-muted-foreground cursor-pointer"
                 >
                   Include competitor angle ({competitors.join(", ")})
                 </Label>
@@ -308,8 +318,7 @@ function GenerateContent() {
               <Button
                 onClick={generatePosts}
                 disabled={isGenerating || !selectedTrend}
-                className="w-full"
-                size="lg"
+                className="w-full h-10"
               >
                 {isGenerating ? (
                   <>
@@ -328,38 +337,39 @@ function GenerateContent() {
         <div className="space-y-4">
           {posts.length > 0 && (
             <div className="flex items-center justify-between">
-              <h2 className="text-lg font-semibold text-foreground">Generated Posts</h2>
+              <h2 className="text-sm font-semibold text-foreground">Generated Posts</h2>
               <Button
                 variant="outline"
                 size="sm"
                 onClick={generatePosts}
                 disabled={isGenerating}
+                className="hover:bg-muted/50 transition-colors duration-150"
               >
-                <RefreshCw className={`mr-2 h-4 w-4 ${isGenerating ? "animate-spin" : ""}`} />
+                <RefreshCw className={`mr-2 h-3.5 w-3.5 ${isGenerating ? "animate-spin" : ""}`} />
                 Regenerate All
               </Button>
             </div>
           )}
 
           {posts.length === 0 && !isGenerating ? (
-            <Card className="bg-card border-border border-dashed">
+            <Card className="border-dashed border-border/60">
               <CardContent className="flex flex-col items-center justify-center py-16 text-center">
                 <div className="rounded-full bg-muted p-4 mb-4">
-                  <FileText className="h-8 w-8 text-muted-foreground" />
+                  <FileText className="h-6 w-6 text-muted-foreground" />
                 </div>
-                <h3 className="text-lg font-medium text-foreground mb-2">
+                <h3 className="text-sm font-medium text-foreground mb-1">
                   No posts generated yet
                 </h3>
-                <p className="text-sm text-muted-foreground max-w-sm">
+                <p className="text-xs text-muted-foreground max-w-sm">
                   Configure your settings and click Generate Posts.
                 </p>
               </CardContent>
             </Card>
           ) : isGenerating && posts.length === 0 ? (
-            <Card className="bg-card border-border">
+            <Card className="border-border/60">
               <CardContent className="flex flex-col items-center justify-center py-16">
-                <Loader2 className="h-8 w-8 animate-spin text-muted-foreground mb-4" />
-                <p className="text-muted-foreground">Crafting Harvey-voiced posts...</p>
+                <Loader2 className="h-6 w-6 animate-spin text-muted-foreground mb-4" />
+                <p className="text-sm text-muted-foreground">Crafting Harvey-voiced posts...</p>
               </CardContent>
             </Card>
           ) : (
@@ -370,10 +380,10 @@ function GenerateContent() {
                   : <PostCard key={post.id} post={post} />
               ))}
               {isGenerating && (
-                <Card className="bg-card border-border">
+                <Card className="border-border/60">
                   <CardContent className="flex items-center justify-center py-8">
-                    <Loader2 className="h-5 w-5 animate-spin text-muted-foreground mr-2" />
-                    <p className="text-sm text-muted-foreground">Generating more posts...</p>
+                    <Loader2 className="h-4 w-4 animate-spin text-muted-foreground mr-2" />
+                    <p className="text-xs text-muted-foreground">Generating more posts...</p>
                   </CardContent>
                 </Card>
               )}
@@ -389,8 +399,8 @@ export default function GeneratePage() {
   return (
     <Suspense
       fallback={
-        <div className="flex items-center justify-center py-16">
-          <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+        <div className="flex items-center justify-center py-16 animate-fade-in">
+          <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
         </div>
       }
     >

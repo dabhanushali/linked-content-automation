@@ -262,10 +262,10 @@ export default function ResearchPage() {
   const weekInfo = getWeekLabel(weekOffset)
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 animate-fade-in">
       <div>
-        <h1 className="text-2xl font-bold text-foreground tracking-tight">News Digest</h1>
-        <p className="text-muted-foreground mt-1">Weekly market intelligence digest and research-driven post writer.</p>
+        <h1 className="text-xl font-semibold text-foreground tracking-tight">News Digest</h1>
+        <p className="text-sm text-muted-foreground mt-1">Weekly market intelligence digest and research-driven post writer.</p>
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab}>

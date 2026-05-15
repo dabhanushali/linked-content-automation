@@ -22,18 +22,28 @@ export async function GET(req: NextRequest) {
     ]
 
     // Check if the configured refresh time matches the current UTC time (within 30-minute window)
-    const refreshTime = settings?.trend_refresh_time ?? "06:00"
-    const [configHour, configMin] = refreshTime.split(":").map(Number)
-    const now = new Date()
-    const utcHour = now.getUTCHours()
-    const utcMin = now.getUTCMinutes()
-    const configTotalMin = configHour * 60 + configMin
-    const nowTotalMin = utcHour * 60 + utcMin
-    const diff = Math.abs(nowTotalMin - configTotalMin)
+    // Skip this check if "force" query param is present (for manual testing)
+    const forceRun = req.nextUrl.searchParams.get("force") === "true"
 
-    // Allow a 30-minute window around the configured time
-    if (diff > 30 && diff < 24 * 60 - 30) {
-      return NextResponse.json({ ok: true, skipped: true, reason: "Outside scheduled window", configured: refreshTime })
+    if (!forceRun) {
+      const refreshTime = settings?.trend_refresh_time ?? "06:00"
+      const [configHour, configMin] = refreshTime.split(":").map(Number)
+      const now = new Date()
+      const utcHour = now.getUTCHours()
+      const utcMin = now.getUTCMinutes()
+      const configTotalMin = configHour * 60 + configMin
+      const nowTotalMin = utcHour * 60 + utcMin
+
+      // Handle midnight wraparound correctly
+      const diff = Math.min(
+        Math.abs(nowTotalMin - configTotalMin),
+        24 * 60 - Math.abs(nowTotalMin - configTotalMin)
+      )
+
+      // Allow a 30-minute window around the configured time
+      if (diff > 30) {
+        return NextResponse.json({ ok: true, skipped: true, reason: "Outside scheduled window", configured: refreshTime, currentUTC: `${utcHour}:${utcMin}` })
+      }
     }
 
     const trends = await fetchWebSearchTrends(topicClusters, provider)
@@ -51,12 +61,17 @@ export async function GET(req: NextRequest) {
         source_url: t.source_url ?? null,
         found_at,
       }))
-      await supabase.from("trends").insert(rows)
+
+      const { error: insertError } = await supabase.from("trends").insert(rows)
+      if (insertError) {
+        console.error("Cron trends DB insert error:", insertError)
+        return NextResponse.json({ error: "Failed to insert trends", details: insertError.message }, { status: 500 })
+      }
     }
 
     return NextResponse.json({ ok: true, count: trends.length })
-  } catch (error) {
+  } catch (error: any) {
     console.error("Cron trends error:", error)
-    return NextResponse.json({ error: "Failed to refresh trends" }, { status: 500 })
+    return NextResponse.json({ error: "Failed to refresh trends", details: error?.message ?? "Unknown error" }, { status: 500 })
   }
 }
