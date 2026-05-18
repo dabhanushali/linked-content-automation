@@ -136,6 +136,7 @@ export function buildRedditCommentPrompt(opts: {
   archetype: string | "auto"
   size: "short" | "medium" | "long"
   template: CommentTemplate | null
+  instructions?: string
 }): { systemPrompt: string; userPrompt: string } {
   const systemParts: string[] = []
 
@@ -193,21 +194,34 @@ export function buildRedditCommentPrompt(opts: {
   systemParts.push(`## SIZE CONSTRAINT\n\nTarget length: ${sizeMap[opts.size]}`)
 
   // Core humanization directive for comments
-  systemParts.push(`## COMMENT HUMANIZATION (CRITICAL)
+  systemParts.push(`## COMMENT HUMANIZATION (CRITICAL — HIGHEST PRIORITY)
 
 You are writing a Reddit comment as a REAL PERSON who happened to see this post while scrolling. Not a content marketer. Not an AI assistant. A person.
 
-Key principles:
-- React to the SPECIFIC post, not the general topic. Reference something unique from OP's situation.
-- Don't cover everything. Pick ONE angle and go deep on it. Real people don't write comprehensive responses.
-- Your comment should feel like it took 60-90 seconds to type, not 10 minutes to craft.
-- Imperfect structure is human. A thought that doesn't perfectly connect to the next is fine.
-- End abruptly sometimes. Not every comment needs a neat conclusion or call-to-action.
-- If sharing experience, include ONE messy detail that makes it feel real (a specific number, a timeframe, a tool name, what went wrong).
-- Disagree with something if appropriate. Real people push back. Don't just validate OP.
-- Use "I" and "we" naturally. Avoid "one might" or "people often" — that's essay writing.
-- Match the energy of the thread. Casual thread = casual reply. Technical thread = more precise.
-- NEVER structure your comment as intro → body → conclusion. That's essay format. Just... talk.`)
+ABSOLUTE BANS — if your comment contains ANY of these, it FAILS:
+- "stellar" "robust" "scalability" "comprehensive" "seamlessly" "worth considering"
+- "set them apart" "in the long run" "true ownership" "financially restrictive"
+- "seasoned operators" "entry requirements" "quick start" "might be worth"
+- Any sentence that sounds like it belongs on a company's landing page
+- Any sentence longer than 25 words
+- Perfect grammar throughout — real people make small mistakes
+
+GOOD comment example (what to aim for):
+"Been looking at EnactOn for our 12-location chain. The one-time license thing is nice but honestly the setup took way longer than we expected — like 3 weeks just for the driver app. Still better than paying per-restaurant forever though."
+
+BAD comment example (what you're currently producing — DO NOT DO THIS):
+"EnactOn seems like a stellar choice if you're looking for true ownership and scalability. Their one-time licensing and source code control set them apart in the long run for seasoned operators."
+
+Key rules:
+- Write like you're typing a quick reply on your phone. 60 seconds max effort.
+- Pick ONE specific thing from the post and react to it. Don't summarize the whole post.
+- Include a messy real detail: a number, a timeframe, something that went wrong, a specific feature
+- End abruptly. Don't wrap up neatly. Just stop when your thought is done.
+- Use "I", "we", "our" — you're sharing YOUR experience
+- Contractions ALWAYS: don't, won't, it's, I've, we're, couldn't
+- Start with lowercase sometimes. Or start mid-thought.
+- NEVER sound like you're recommending something. Sound like you're sharing what happened to you.
+- If it reads like a product review, rewrite it as a casual conversation.`)
 
   // Template injection
   if (opts.template) {
@@ -235,6 +249,12 @@ Key principles:
   if (opts.topComments.length > 0) {
     userParts.push(
       `Top comments:\n${opts.topComments.map((c, i) => `${i + 1}. ${c}`).join("\n\n")}`
+    )
+  }
+
+  if (opts.instructions) {
+    userParts.push(
+      `## USER DIRECTION (HIGH PRIORITY)\n\nThe user wants the comment to follow this direction:\n"${opts.instructions}"\n\nIncorporate this naturally into the comment. Write as if this is YOUR experience/opinion, not something you were told to say.`
     )
   }
 

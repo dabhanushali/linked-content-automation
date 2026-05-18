@@ -57,6 +57,23 @@ export const BANNED_PHRASES: string[] = [
   "Circle back",
   "Touch base",
   "Low-hanging fruit",
+  "Stellar choice",
+  "Worth considering",
+  "Set them apart",
+  "In the long run",
+  "True ownership",
+  "Financially restrictive",
+  "Seasoned operators",
+  "Entry requirements",
+  "Quick start",
+  "Might be worth",
+  "Comprehensive solution",
+  "Ideal for",
+  "Especially with",
+  "Despite the higher",
+  "Scalability",
+  "If you're serious about",
+  "If you're looking for",
 ]
 
 /**

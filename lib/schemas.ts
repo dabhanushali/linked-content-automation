@@ -30,6 +30,7 @@ export const RedditCommentRequestSchema = z.object({
   archetype: z.string().optional().default("auto"),
   noHarvey: z.boolean().optional().default(false),
   commentSize: z.enum(["short", "medium", "long"]).optional().default("medium"),
+  instructions: z.string().optional().default(""),
 })
 
 export const LinkedInCommentRequestSchema = z.object({

@@ -67,7 +67,7 @@ export async function POST(req: NextRequest) {
   if (!parsed.success) {
     return NextResponse.json({ error: parsed.error.errors[0].message }, { status: 400 })
   }
-  const { trendTitle, trendSummary, trendUrl, archetype, noHarvey, commentSize } = parsed.data
+  const { trendTitle, trendSummary, trendUrl, archetype, noHarvey, commentSize, instructions } = parsed.data
 
   // Optional enhanced fields for identity/tone/template integration
   const identityId: string | undefined = body.identity_id
@@ -147,6 +147,7 @@ export async function POST(req: NextRequest) {
         archetype: archetypeKey,
         size: commentSize,
         template,
+        instructions: instructions || undefined,
       })
 
       const text = await generatePosts(enhancedSystem, enhancedUser, provider)
@@ -238,6 +239,18 @@ HUMANIZATION RULES (critical — Reddit users instantly spot AI-generated commen
 - NEVER open with praise ("Great question", "This is so important", "Love this post")
 - Avoid perfect parallel structure in lists. Real people don't write balanced points.
 
+ABSOLUTE BANS — these words/phrases INSTANTLY reveal AI:
+- "stellar" "robust" "scalability" "comprehensive" "seamlessly" "worth considering"
+- "set them apart" "in the long run" "true ownership" "financially restrictive"
+- "seasoned operators" "ideal for" "if you're looking for" "if you're serious about"
+- Any sentence that sounds like a product landing page
+
+GOOD example (aim for this):
+"Been looking at EnactOn for our 12-location chain. The one-time license thing is nice but honestly the setup took way longer than we expected — like 3 weeks just for the driver app. Still better than paying per-restaurant forever though."
+
+BAD example (NEVER do this):
+"EnactOn seems like a stellar choice if you're looking for true ownership and scalability. Their one-time licensing and source code control set them apart in the long run for seasoned operators."
+${instructions ? `\nUSER DIRECTION (follow this closely):\nThe user wants: "${instructions}"\nWrite as if this is YOUR genuine experience/opinion. Don't make it sound like you were told to say this.\n` : ""}
 Return ONLY valid JSON:
 {
   "comment": "the full comment text with Reddit formatting",
