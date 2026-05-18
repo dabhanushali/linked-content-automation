@@ -12,7 +12,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
-import { Loader2, Sparkles, Check, X, RotateCcw, Copy, Send, User, Palette, Hash, Lightbulb, TrendingUp, MessageSquare, Zap, Library } from "lucide-react"
+import { Loader2, Sparkles, Check, X, RotateCcw, Copy, Send, User, Palette, Hash, Lightbulb, TrendingUp, MessageSquare, Zap, Library, ExternalLink } from "lucide-react"
 
 
 interface Subreddit { id: string; name: string; display_name: string }
@@ -104,6 +104,19 @@ export default function RedditGeneratePage() {
     setCopied(true); setTimeout(() => setCopied(false), 2000)
   }
 
+  function handlePostToReddit() {
+    if (!generatedPost) return
+    // Copy body to clipboard (user can paste manually if needed)
+    navigator.clipboard.writeText(generatedPost.body)
+    // Find subreddit name
+    const sub = subreddits.find(s => s.id === selectedSubreddit)
+    const subredditName = sub?.name || "test"
+    // Open new Reddit submit with title and body pre-filled
+    // Note: new Reddit uses &text= for body content. User should switch to Markdown Mode for bold to work.
+    const url = `https://www.reddit.com/r/${subredditName}/submit?type=TEXT&title=${encodeURIComponent(generatedPost.title)}&text=${encodeURIComponent(generatedPost.body)}`
+    window.open(url, "_blank")
+  }
+
   function handleKeyDown(e: React.KeyboardEvent) {
     if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); handleGenerate() }
   }
@@ -161,9 +174,14 @@ export default function RedditGeneratePage() {
                 </Badge>
                 {generatedPost.version_number > 1 && <Badge variant="outline" className="text-[10px]">v{generatedPost.version_number}</Badge>}
               </div>
-              <Button size="icon" variant="ghost" className="h-8 w-8" onClick={handleCopy}>
-                {copied ? <Check className="h-4 w-4 text-success" /> : <Copy className="h-4 w-4" />}
-              </Button>
+              <div className="flex items-center gap-1">
+                <Button size="sm" variant="outline" className="h-8 text-xs" onClick={handlePostToReddit}>
+                  <ExternalLink className="h-3 w-3 mr-1" />Post to Reddit
+                </Button>
+                <Button size="icon" variant="ghost" className="h-8 w-8" onClick={handleCopy}>
+                  {copied ? <Check className="h-4 w-4 text-success" /> : <Copy className="h-4 w-4" />}
+                </Button>
+              </div>
             </div>
 
             <Card className="overflow-hidden">
@@ -174,7 +192,7 @@ export default function RedditGeneratePage() {
                 </div>
                 <div className="border-t border-border pt-4">
                   <p className="text-[10px] uppercase tracking-widest text-muted-foreground mb-2">Body</p>
-                  <div className="text-sm leading-relaxed whitespace-pre-wrap">{generatedPost.body}</div>
+                  <div className="text-sm leading-relaxed whitespace-pre-wrap" dangerouslySetInnerHTML={{ __html: generatedPost.body.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>').replace(/\*(.*?)\*/g, '<em>$1</em>').replace(/^### (.*$)/gm, '<h3 class="font-semibold text-base mt-3 mb-1">$1</h3>').replace(/^## (.*$)/gm, '<h2 class="font-semibold text-lg mt-4 mb-1">$1</h2>').replace(/^# (.*$)/gm, '<h1 class="font-bold text-xl mt-4 mb-2">$1</h1>').replace(/^\d+\. (.*$)/gm, '<li class="ml-4 list-decimal">$1</li>').replace(/^- (.*$)/gm, '<li class="ml-4 list-disc">$1</li>') }} />
                 </div>
               </CardContent>
             </Card>

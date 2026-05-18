@@ -3,13 +3,14 @@
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { cn } from "@/lib/utils"
-import { PenLine, Terminal, Library, Radio } from "lucide-react"
+import { PenLine, Terminal, Library, Radio, MessageSquare } from "lucide-react"
 
 const redditNavItems = [
   { href: "/reddit/generate", label: "Generate Post", icon: PenLine },
   { href: "/reddit/command-centre", label: "Command Centre", icon: Terminal },
   { href: "/reddit/engagement", label: "Engagement Library", icon: Library },
   { href: "/reddit/monitors", label: "Feed Monitors", icon: Radio },
+  { href: "/reddit/comments", label: "Comments", icon: MessageSquare },
 ]
 
 export default function RedditLayout({ children }: { children: React.ReactNode }) {

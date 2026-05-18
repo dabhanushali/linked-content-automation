@@ -141,9 +141,12 @@ function extractKeywords(command: string, subreddit: string | null): string {
   // Remove orphaned time unit words (left after digit removal)
   cleaned = cleaned.replace(/\b(hours?|hrs?|days?|weeks?|months?|years?|minutes?|mins?)\b/gi, "")
 
-  // Remove common filler words
+  // Remove provider names (reddit_api, apify, firecrawl, tavily)
+  cleaned = cleaned.replace(/\b(reddit_api|apify|firecrawl|tavily)\b/gi, "")
+
+  // Remove common filler words and command verbs
   cleaned = cleaned.replace(
-    /\b(scrape|find|get|fetch|search|show|give|me|the|from|about|posts|post|in|on|for|with|and|or|of|a|an|last|past|this)\b/gi,
+    /\b(completescrap|completescrape|scrap|scrape|scraping|find|get|fetch|search|show|give|me|the|from|about|posts|post|in|on|for|with|and|or|of|a|an|last|past|this|complete|run|execute|do|please|can|you)\b/gi,
     ""
   )
 

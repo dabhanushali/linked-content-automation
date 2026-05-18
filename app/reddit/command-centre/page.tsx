@@ -12,7 +12,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
-import { Loader2, Send, BookmarkPlus, ExternalLink, Terminal, Search, TrendingUp, Hash, RefreshCw, Trash2, Pencil } from "lucide-react"
+import { Loader2, Send, BookmarkPlus, ExternalLink, Terminal, Search, TrendingUp, Hash, RefreshCw, Trash2, Pencil, MessageSquare } from "lucide-react"
 import { ScrapingProvider, ScrapedPost, ScrapeRun } from "@/lib/reddit/types"
 
 const quickCommands = [
@@ -192,6 +192,9 @@ export default function CommandCentrePage() {
                             <Button size="sm" variant={savedIds.has(post.reddit_id) ? "secondary" : "outline"} className="h-7 text-xs px-2 rounded-lg" onClick={(e) => { e.stopPropagation(); handleSaveToLibrary(post, run.id) }} disabled={savedIds.has(post.reddit_id)}>
                               <BookmarkPlus className="h-3 w-3 mr-1" />{savedIds.has(post.reddit_id) ? "Saved" : "Save"}
                             </Button>
+                            <a href={`/reddit/comments?title=${encodeURIComponent(post.title)}&body=${encodeURIComponent(post.selftext?.slice(0, 500) || "")}&url=${encodeURIComponent(post.permalink.startsWith("http") ? post.permalink : `https://reddit.com${post.permalink}`)}`} className="inline-flex items-center h-7 px-2 text-xs rounded-lg border border-border/60 bg-secondary/50 text-muted-foreground hover:text-foreground transition-colors" onClick={e => e.stopPropagation()}>
+                              <MessageSquare className="h-3 w-3 mr-1" />Comment
+                            </a>
                           </div>
                         </div>
                       ))}

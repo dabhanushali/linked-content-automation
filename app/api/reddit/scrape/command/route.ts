@@ -32,7 +32,18 @@ export async function POST(req: NextRequest) {
     // Parse the natural language command
     const parsed = parseCommand(command.trim())
     const parsedIntent = toParseIntent(parsed)
-    console.log("[SCRAPE DEBUG]", { command: command.trim(), parsed, parsedIntent })
+    console.log("[SCRAPE DEBUG]", {
+      raw_command: command.trim(),
+      extracted_keywords: parsed.keywords,
+      sort: parsed.sort,
+      timeFilter: parsed.timeFilter,
+      maxResults: parsed.maxResults,
+      subreddit: parsed.subreddit,
+      provider,
+      final_url: parsed.subreddit
+        ? `https://www.reddit.com/r/${parsed.subreddit}/search.json?q=${encodeURIComponent(parsed.keywords)}&restrict_sr=on&limit=${parsed.maxResults}&sort=${parsed.sort}&t=${parsed.timeFilter}`
+        : `https://www.reddit.com/search.json?q=${encodeURIComponent(parsed.keywords)}&limit=${parsed.maxResults}&sort=${parsed.sort}&t=${parsed.timeFilter}`,
+    })
 
     // Create scrape run record with pending status
     const { data: run, error: insertError } = await supabase

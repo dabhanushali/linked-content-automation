@@ -56,8 +56,25 @@ export function buildRedditPostPrompt(ctx: RedditPromptContext): {
     systemParts.push(`## TONE INSTRUCTION\n\n${ctx.tone.description}`)
   }
 
-  // Anti-AI rules
+  // Anti-AI rules (for post generation)
   systemParts.push(getAntiAIRules())
+
+  // Core humanization directive
+  systemParts.push(`## WRITING STYLE
+
+Write a Reddit post in a natural, conversational tone. Follow these guidelines:
+
+- Use first person perspective naturally.
+- Write in a direct, conversational style appropriate for Reddit discussions.
+- Keep it concise — 3-6 short paragraphs max.
+- No filler sentences. Every sentence should add value.
+- Titles should be direct and specific.
+- Only include factual information based on the user's input. Do not invent details.
+- End with a discussion question or open point.
+- Spell all proper nouns correctly from the user's input.
+- Use bold sparingly — only for 1-2 key terms maximum.
+- No emojis, no hashtags, no promotional links.
+- Avoid overly formal or corporate language.`)
 
   // Engagement items as style references (up to 3)
   if (ctx.engagementItems.length > 0) {
