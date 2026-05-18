@@ -74,7 +74,7 @@ export async function POST(req: NextRequest) {
   const toneId: string | undefined = body.tone_id
   const templateId: string | undefined = body.template_id
 
-  const sizeMap = { short: "50–100 words", medium: "100–200 words", long: "200–350 words" }
+  const sizeMap = { short: "30–60 words (2-3 sentences MAX)", medium: "80–150 words (one short paragraph)", long: "150–250 words (2 short paragraphs max)" }
 
   const isRedditUrl = trendUrl && (trendUrl.includes("reddit.com") || trendUrl.includes("redd.it"))
   const [settings, knowledgeItems, thread] = await Promise.all([
@@ -222,35 +222,24 @@ ${harveyRules}
 - RD-007: Use Reddit-native formatting: **bold** for key terms (max 2), line breaks between paragraphs
 
 HUMANIZATION RULES (critical — Reddit users instantly spot AI-generated comments):
-- React to something SPECIFIC in OP's post. Show you actually read it.
-- Pick ONE angle. Don't try to be comprehensive. Real people focus on what caught their attention.
-- Write like you're typing on your phone during a break. Not crafting a blog post.
-- Use contractions always: don't, won't, it's, I've, we're, couldn't, shouldn't
-- Start sentences with "And", "But", "So", "Yeah", "Honestly", "Tbh" — real people do this
-- Include filler: "basically", "honestly", "imo", "fwiw", "afaik"
-- Drop articles where natural: "went through same thing" not "went through the same thing"
-- Reference time vaguely: "a few months back", "couple weeks ago", "last year sometime"
-- Include ONE specific messy detail that makes your experience feel real
-- NEVER use semicolons. Real Reddit users don't.
-- Don't summarize at the end. Just stop when you're done talking.
-- Imperfect transitions are fine. A thought that doesn't perfectly connect = human.
-- If your comment could apply to ANY post about this topic, it's too generic. Be specific.
-- Disagree with something if it makes sense. Don't just validate.
-- NEVER open with praise ("Great question", "This is so important", "Love this post")
-- Avoid perfect parallel structure in lists. Real people don't write balanced points.
+- Respond to ONE specific thing from the post. Not the whole post.
+- Share a concrete experience or opinion. Include a real detail (number, time, problem).
+- Keep sentences under 20 words. Mix short and medium.
+- Use contractions naturally (don't, it's, won't, I've)
+- DO NOT use filler adverbs: "honestly", "tbh", "basically", "fwiw", "imo", "literally"
+- DO NOT use corporate words: "comprehensive", "stellar", "robust", "scalability"
+- DO NOT use marketing patterns: "if you're looking for", "worth considering", "set them apart"
+- No summary at the end. Just stop when your thought is done.
+- No semicolons.
+- Sound like you typed this in 30 seconds.
+- If it reads like a product review or recommendation, rewrite as a personal experience.
 
-ABSOLUTE BANS — these words/phrases INSTANTLY reveal AI:
-- "stellar" "robust" "scalability" "comprehensive" "seamlessly" "worth considering"
-- "set them apart" "in the long run" "true ownership" "financially restrictive"
-- "seasoned operators" "ideal for" "if you're looking for" "if you're serious about"
-- Any sentence that sounds like a product landing page
+GOOD example:
+"We switched from GloriaFood to EnactOn about 4 months ago for our 8 locations. Setup was rough — took almost a month to get the driver app working right. But not paying per-restaurant anymore saves us like $400/mo so it worked out."
 
-GOOD example (aim for this):
-"Been looking at EnactOn for our 12-location chain. The one-time license thing is nice but honestly the setup took way longer than we expected — like 3 weeks just for the driver app. Still better than paying per-restaurant forever though."
-
-BAD example (NEVER do this):
-"EnactOn seems like a stellar choice if you're looking for true ownership and scalability. Their one-time licensing and source code control set them apart in the long run for seasoned operators."
-${instructions ? `\nUSER DIRECTION (follow this closely):\nThe user wants: "${instructions}"\nWrite as if this is YOUR genuine experience/opinion. Don't make it sound like you were told to say this.\n` : ""}
+BAD example (NEVER produce this):
+"EnactOn is a fantastic choice for multi-restaurant operators seeking full control. Honestly, their one-time licensing model sets them apart. Tbh if you're serious about scaling, it's worth a deeper look."
+${instructions ? `\nYOUR ANGLE FOR THIS COMMENT:\nYou want to mention: "${instructions}"\nWrite from YOUR OWN perspective. You discovered/experienced this yourself. OP did NOT mention it — you are adding new info to the thread.\n` : ""}
 Return ONLY valid JSON:
 {
   "comment": "the full comment text with Reddit formatting",

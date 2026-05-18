@@ -187,41 +187,41 @@ export function buildRedditCommentPrompt(opts: {
 
   // Size constraints
   const sizeMap = {
-    short: "50–100 words",
-    medium: "100–200 words",
-    long: "200–350 words",
+    short: "30–60 words (2-3 sentences MAX, no more)",
+    medium: "80–150 words (one short paragraph)",
+    long: "150–250 words (2 short paragraphs max)",
   }
-  systemParts.push(`## SIZE CONSTRAINT\n\nTarget length: ${sizeMap[opts.size]}`)
+  systemParts.push(`## SIZE CONSTRAINT\n\nTarget length: ${sizeMap[opts.size]}\n\nThis is a HARD limit. Do not exceed it.`)
 
   // Core humanization directive for comments
-  systemParts.push(`## COMMENT HUMANIZATION (CRITICAL — HIGHEST PRIORITY)
+  systemParts.push(`## COMMENT STYLE (CRITICAL — HIGHEST PRIORITY)
 
-You are writing a Reddit comment as a REAL PERSON who happened to see this post while scrolling. Not a content marketer. Not an AI assistant. A person.
+Write a Reddit comment that sounds like a normal person sharing their experience. No tricks, no forced casualness, no marketing.
 
-ABSOLUTE BANS — if your comment contains ANY of these, it FAILS:
-- "stellar" "robust" "scalability" "comprehensive" "seamlessly" "worth considering"
-- "set them apart" "in the long run" "true ownership" "financially restrictive"
-- "seasoned operators" "entry requirements" "quick start" "might be worth"
-- Any sentence that sounds like it belongs on a company's landing page
-- Any sentence longer than 25 words
-- Perfect grammar throughout — real people make small mistakes
+RULES:
+1. Reference something SPECIFIC from the post (a company name, a detail, a claim OP made)
+2. Share a concrete experience or opinion — not generic advice
+3. Keep sentences under 20 words. Mix short and medium.
+4. Use contractions naturally (don't, it's, won't, I've)
+5. No filler adverbs: DO NOT use "honestly", "tbh", "basically", "fwiw", "imo", "literally"
+6. No corporate words: "comprehensive", "stellar", "robust", "scalability", "seamlessly"
+7. No marketing patterns: "if you're looking for X", "worth considering", "set them apart"
+8. No summary sentences at the end. Just stop.
+9. No semicolons.
+10. Sound like you typed this in 30 seconds, not 5 minutes.
 
-GOOD comment example (what to aim for):
-"Been looking at EnactOn for our 12-location chain. The one-time license thing is nice but honestly the setup took way longer than we expected — like 3 weeks just for the driver app. Still better than paying per-restaurant forever though."
+WHAT MAKES A COMMENT SOUND HUMAN:
+- It responds to ONE specific thing, not the whole post
+- It includes a real detail (a number, a time, a problem encountered)
+- It doesn't try to be helpful to everyone — just shares what happened
+- It might disagree with something or add a caveat
+- It ends mid-thought sometimes
 
-BAD comment example (what you're currently producing — DO NOT DO THIS):
-"EnactOn seems like a stellar choice if you're looking for true ownership and scalability. Their one-time licensing and source code control set them apart in the long run for seasoned operators."
+EXAMPLE OF WHAT TO PRODUCE:
+"We switched from GloriaFood to EnactOn about 4 months ago for our 8 locations. Setup was rough — took almost a month to get the driver app working right. But not paying per-restaurant anymore saves us like $400/mo so it worked out."
 
-Key rules:
-- Write like you're typing a quick reply on your phone. 60 seconds max effort.
-- Pick ONE specific thing from the post and react to it. Don't summarize the whole post.
-- Include a messy real detail: a number, a timeframe, something that went wrong, a specific feature
-- End abruptly. Don't wrap up neatly. Just stop when your thought is done.
-- Use "I", "we", "our" — you're sharing YOUR experience
-- Contractions ALWAYS: don't, won't, it's, I've, we're, couldn't
-- Start with lowercase sometimes. Or start mid-thought.
-- NEVER sound like you're recommending something. Sound like you're sharing what happened to you.
-- If it reads like a product review, rewrite it as a casual conversation.`)
+DO NOT PRODUCE ANYTHING LIKE:
+"EnactOn is a fantastic choice for multi-restaurant operators seeking full control. Their one-time licensing model sets them apart from SaaS alternatives in the long run."`)
 
   // Template injection
   if (opts.template) {
@@ -254,7 +254,7 @@ Key rules:
 
   if (opts.instructions) {
     userParts.push(
-      `## USER DIRECTION (HIGH PRIORITY)\n\nThe user wants the comment to follow this direction:\n"${opts.instructions}"\n\nIncorporate this naturally into the comment. Write as if this is YOUR experience/opinion, not something you were told to say.`
+      `## YOUR ANGLE FOR THIS COMMENT\n\nYou want to mention: "${opts.instructions}"\n\nWrite the comment FROM YOUR OWN PERSPECTIVE about this. You are adding this information to the thread — OP did NOT mention it. You discovered/experienced this yourself.`
     )
   }
 
