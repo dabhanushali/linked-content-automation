@@ -518,16 +518,28 @@ export default function FeedMonitorsPage() {
                       </p>
                     )}
                   </div>
-                  {post.url && (
-                    <a
-                      href={post.url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-xs text-accent hover:underline shrink-0 mt-0.5"
-                    >
-                      View →
-                    </a>
-                  )}
+                  <div className="flex items-center gap-2 shrink-0 mt-0.5">
+                    {post.url && (
+                      <a
+                        href={`/reddit/comments?title=${encodeURIComponent(post.title || "")}&body=${encodeURIComponent(post.body?.slice(0, 500) || "")}&url=${encodeURIComponent(post.url)}`}
+                        className="text-xs text-accent hover:underline"
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        Comment
+                      </a>
+                    )}
+                    {post.url && (
+                      <a
+                        href={post.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-xs text-muted-foreground hover:text-foreground"
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        View →
+                      </a>
+                    )}
+                  </div>
                 </div>
               </div>
             ))
