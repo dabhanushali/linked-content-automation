@@ -1,5 +1,6 @@
 import { Trend } from "@/lib/types"
 import { RedditPost } from "@/lib/reddit"
+import { ScrapedPost, RedditInsights, GeoCluster } from "@/lib/reddit/types"
 import * as anthropic from "./anthropic"
 import * as openai from "./openai"
 
@@ -40,4 +41,60 @@ export async function cleanSubredditRules(rawRules: string, provider: AIProvider
   const systemPrompt = `You are a text cleaning assistant. Your job is to take raw subreddit rules and reformat them into a clean, concise summary that can be used as context for content generation. Remove redundant text, fix formatting, and organize the rules clearly. Output ONLY the cleaned rules text, nothing else.`
   const userPrompt = `Clean and organize these subreddit rules:\n\n${rawRules}`
   return generatePosts(systemPrompt, userPrompt, provider)
+}
+
+export async function generateRedditInsights(
+  posts: ScrapedPost[],
+  provider: AIProvider
+): Promise<RedditInsights> {
+  return provider === "openai"
+    ? openai.generateRedditInsights(posts)
+    : anthropic.generateRedditInsights(posts)
+}
+
+export async function clusterRedditPostsIntoTopics(
+  posts: ScrapedPost[],
+  provider: AIProvider
+): Promise<Array<{
+  cluster_name: string
+  core_intent: "informational" | "commercial" | "transactional"
+  summary: string
+  post_ids: string[]
+}>> {
+  return provider === "openai"
+    ? openai.clusterRedditPostsIntoTopics(posts)
+    : anthropic.clusterRedditPostsIntoTopics(posts)
+}
+
+export async function evaluateContentCoverage(
+  clusters: GeoCluster[],
+  sitemapBlogs: Array<{ url: string; title: string; meta_description: string | null }>,
+  provider: AIProvider
+): Promise<Array<{ url: string; coverage_status: "uncovered" | "needs_optimization" | "covered"; matching_cluster_id: string | null }>> {
+  return provider === "openai"
+    ? openai.evaluateContentCoverage(clusters, sitemapBlogs)
+    : anthropic.evaluateContentCoverage(clusters, sitemapBlogs)
+}
+
+export async function generateGeoBrief(
+  cluster: GeoCluster,
+  keyword: string,
+  provider: AIProvider
+): Promise<string> {
+  return provider === "openai"
+    ? openai.generateGeoBrief(cluster, keyword)
+    : anthropic.generateGeoBrief(cluster, keyword)
+}
+
+export async function generateCategorizedQuestions(
+  phrase: string,
+  provider: AIProvider
+): Promise<Array<{
+  question: string
+  search_intent: "informational" | "commercial" | "navigational"
+  motive_summary: string
+}>> {
+  return provider === "openai"
+    ? openai.generateCategorizedQuestions(phrase)
+    : anthropic.generateCategorizedQuestions(phrase)
 }

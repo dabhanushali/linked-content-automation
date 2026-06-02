@@ -65,6 +65,7 @@ create table if not exists reddit_scrape_runs (
   actor_used text,
   result_count integer default 0,
   results_json text,
+  insights_json jsonb,
   status text not null default 'pending'
     check (status in ('pending', 'running', 'complete', 'failed')),
   created_at timestamp with time zone default now()
@@ -191,3 +192,70 @@ alter table settings
   add column if not exists firecrawl_enabled boolean default false,
   add column if not exists tavily_enabled boolean default false,
   add column if not exists reddit_services_config jsonb default '{}';
+
+-- ============================================================
+-- 11. GEO & Content Automation Tables
+-- ============================================================
+create table if not exists geo_keywords (
+  id uuid default gen_random_uuid() primary key,
+  phrase text not null,
+  status text not null default 'scanning',
+  created_at timestamp with time zone default now()
+);
+
+alter table geo_keywords disable row level security;
+
+create table if not exists geo_reddit_posts (
+  id text primary key,
+  keyword_id uuid references geo_keywords(id) on delete cascade,
+  title text not null,
+  url text,
+  subreddit text,
+  author text,
+  upvotes integer default 0,
+  num_comments integer default 0,
+  created_utc integer default 0,
+  selftext text,
+  created_at timestamp with time zone default now()
+);
+
+alter table geo_reddit_posts disable row level security;
+
+create table if not exists geo_clusters (
+  id uuid default gen_random_uuid() primary key,
+  keyword_id uuid references geo_keywords(id) on delete cascade,
+  cluster_name text not null,
+  core_intent text not null,
+  summary text,
+  total_posts integer default 0,
+  total_comments integer default 0,
+  hotness_score float default 0.0,
+  post_ids text[] default '{}'
+);
+
+alter table geo_clusters disable row level security;
+
+create table if not exists geo_llm_suggestions (
+  id uuid default gen_random_uuid() primary key,
+  keyword_id uuid references geo_keywords(id) on delete cascade,
+  source text not null,
+  topic_title text not null,
+  suggested_angle text,
+  priority text default 'medium'
+);
+
+alter table geo_llm_suggestions disable row level security;
+
+create table if not exists geo_website_index (
+  id uuid default gen_random_uuid() primary key,
+  keyword_id uuid references geo_keywords(id) on delete cascade,
+  url text not null,
+  title text not null,
+  meta_description text,
+  matching_cluster_id uuid references geo_clusters(id) on delete set null,
+  coverage_status text default 'uncovered',
+  scanned_at timestamp with time zone default now()
+);
+
+alter table geo_website_index disable row level security;
+

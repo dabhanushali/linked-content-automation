@@ -126,27 +126,33 @@ export default function RedditGeneratePage() {
   }
 
   return (
-    <div className="flex flex-col h-[calc(100vh-10rem)] max-w-3xl mx-auto">
+    <div className="flex flex-col h-[calc(100vh-10rem)] max-w-3xl mx-auto relative">
       {/* Output Area — scrollable, takes all available space above input */}
-      <div className="flex-1 overflow-y-auto pb-4">
+      <div className="flex-1 overflow-y-auto pb-4 pr-1 scrollbar-thin">
         {/* Empty state / greeting */}
         {!generatedPost && !isGenerating && (
-          <div className="flex flex-col items-center justify-center h-full text-center animate-fade-in">
-            <div>
-              <h1 className="text-2xl font-semibold tracking-tight">What do you want to post?</h1>
-              <p className="text-sm text-muted-foreground mt-2">Choose a subreddit, describe your idea, and let AI craft an authentic post</p>
+          <div className="flex flex-col items-center justify-center h-full text-center animate-fade-in py-12">
+            <div className="space-y-2">
+              <h1 className="text-2xl font-bold tracking-tight bg-gradient-to-r from-foreground to-muted-foreground bg-clip-text text-transparent">
+                What do you want to post?
+              </h1>
+              <p className="text-xs text-muted-foreground/80 mt-1.5 font-medium max-w-md mx-auto">
+                Choose a subreddit, describe your idea, and let AI craft an authentic post matching subreddit guidelines.
+              </p>
             </div>
 
             {/* Quick prompt cards */}
-            <div className="grid grid-cols-2 gap-3 mt-6 w-full max-w-lg">
+            <div className="grid grid-cols-2 gap-3 mt-8 w-full max-w-lg">
               {quickPrompts.map((qp, i) => (
                 <button
                   key={i}
                   onClick={() => handleQuickPrompt(qp.prompt)}
-                  className="flex items-start gap-3 p-4 rounded-xl border border-border bg-card hover:bg-secondary/50 hover:border-accent/30 transition-all duration-150 text-left group"
+                  className="flex items-start gap-3.5 p-4 rounded-2xl border border-border/10 bg-card/40 backdrop-blur-md hover:bg-accent/[0.02] hover:border-accent/30 hover:shadow-[0_4px_20px_-10px_rgba(var(--accent),0.1)] transition-all duration-300 text-left group"
                 >
                   <qp.icon className="h-4 w-4 text-muted-foreground group-hover:text-accent transition-colors mt-0.5 shrink-0" />
-                  <span className="text-sm text-muted-foreground group-hover:text-foreground transition-colors">{qp.label}</span>
+                  <span className="text-xs font-semibold text-muted-foreground group-hover:text-foreground transition-colors leading-relaxed">
+                    {qp.label}
+                  </span>
                 </button>
               ))}
             </div>
@@ -155,10 +161,15 @@ export default function RedditGeneratePage() {
 
         {/* Loading state */}
         {isGenerating && !generatedPost && (
-          <div className="flex flex-col items-center justify-center h-full animate-fade-in">
-            <Loader2 className="h-8 w-8 animate-spin text-accent mb-4" />
-            <p className="text-sm text-muted-foreground">Crafting your post...</p>
-            <p className="text-xs text-muted-foreground/60 mt-1">Applying subreddit rules, identity, and anti-AI filters</p>
+          <div className="flex flex-col items-center justify-center h-full animate-fade-in space-y-4 py-16">
+            <div className="relative flex items-center justify-center">
+              <div className="absolute inset-0 rounded-full bg-accent/20 blur-xl animate-pulse h-12 w-12" />
+              <Loader2 className="h-8 w-8 animate-spin text-accent relative z-10" />
+            </div>
+            <div className="text-center space-y-1">
+              <p className="text-sm font-semibold tracking-wide text-foreground">Crafting your post...</p>
+              <p className="text-[11px] text-muted-foreground/70">Applying subreddit rules, identity, and anti-AI filters</p>
+            </div>
           </div>
         )}
 
@@ -168,49 +179,62 @@ export default function RedditGeneratePage() {
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <Sparkles className="h-4 w-4 text-accent" />
-                <span className="text-sm font-medium">Generated Post</span>
-                <Badge variant={generatedPost.status === "approved" ? "default" : generatedPost.status === "rejected" ? "destructive" : "secondary"} className="text-[10px] capitalize">
+                <span className="text-xs font-bold uppercase tracking-wider text-foreground">Generated Post</span>
+                <Badge 
+                  variant={generatedPost.status === "approved" ? "default" : generatedPost.status === "rejected" ? "destructive" : "secondary"} 
+                  className="text-[9px] uppercase font-black tracking-widest py-0.5 px-2 rounded"
+                >
                   {generatedPost.status.replace("_", " ")}
                 </Badge>
-                {generatedPost.version_number > 1 && <Badge variant="outline" className="text-[10px]">v{generatedPost.version_number}</Badge>}
+                {generatedPost.version_number > 1 && (
+                  <Badge variant="outline" className="text-[9px] uppercase font-black tracking-widest py-0.5 px-2 rounded">
+                    v{generatedPost.version_number}
+                  </Badge>
+                )}
               </div>
-              <div className="flex items-center gap-1">
-                <Button size="sm" variant="outline" className="h-8 text-xs" onClick={handlePostToReddit}>
-                  <ExternalLink className="h-3 w-3 mr-1" />Post to Reddit
+              <div className="flex items-center gap-1.5">
+                <Button size="sm" variant="outline" className="h-8 text-[10px] font-bold rounded-lg border-border/60 hover:bg-secondary/40" onClick={handlePostToReddit}>
+                  <ExternalLink className="h-3 w-3 mr-1 text-accent" />Post to Reddit
                 </Button>
-                <Button size="icon" variant="ghost" className="h-8 w-8" onClick={handleCopy}>
-                  {copied ? <Check className="h-4 w-4 text-success" /> : <Copy className="h-4 w-4" />}
+                <Button size="icon" variant="ghost" className="h-8 w-8 rounded-lg hover:bg-secondary/45" onClick={handleCopy}>
+                  {copied ? <Check className="h-3.5 w-3.5 text-emerald-500" /> : <Copy className="h-3.5 w-3.5 text-muted-foreground" />}
                 </Button>
               </div>
             </div>
 
-            <Card className="overflow-hidden">
-              <CardContent className="p-6 space-y-4">
+            <Card className="overflow-hidden bg-card/60 backdrop-blur-md border border-border/15 shadow-sm rounded-2xl transition-all duration-300">
+              <CardContent className="p-6 space-y-5">
                 <div>
-                  <p className="text-[10px] uppercase tracking-widest text-muted-foreground mb-1.5">Title</p>
-                  <h3 className="text-lg font-semibold leading-snug">{generatedPost.title}</h3>
+                  <p className="text-[9px] uppercase font-black tracking-widest text-muted-foreground/80 mb-2">Title</p>
+                  <h3 className="text-base font-bold leading-snug text-foreground">{generatedPost.title}</h3>
                 </div>
-                <div className="border-t border-border pt-4">
-                  <p className="text-[10px] uppercase tracking-widest text-muted-foreground mb-2">Body</p>
-                  <div className="text-sm leading-relaxed whitespace-pre-wrap" dangerouslySetInnerHTML={{ __html: generatedPost.body.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>').replace(/\*(.*?)\*/g, '<em>$1</em>').replace(/^### (.*$)/gm, '<h3 class="font-semibold text-base mt-3 mb-1">$1</h3>').replace(/^## (.*$)/gm, '<h2 class="font-semibold text-lg mt-4 mb-1">$1</h2>').replace(/^# (.*$)/gm, '<h1 class="font-bold text-xl mt-4 mb-2">$1</h1>').replace(/^\d+\. (.*$)/gm, '<li class="ml-4 list-decimal">$1</li>').replace(/^- (.*$)/gm, '<li class="ml-4 list-disc">$1</li>') }} />
+                <div className="border-t border-border/15 pt-5">
+                  <p className="text-[9px] uppercase font-black tracking-widest text-muted-foreground/80 mb-3">Body</p>
+                  <div className="text-xs text-foreground/90 leading-relaxed font-normal whitespace-pre-wrap prose prose-sm dark:prose-invert max-w-none" dangerouslySetInnerHTML={{ __html: generatedPost.body.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>').replace(/\*(.*?)\*/g, '<em>$1</em>').replace(/^### (.*$)/gm, '<h3 class="font-semibold text-sm mt-3 mb-1">$1</h3>').replace(/^## (.*$)/gm, '<h2 class="font-semibold text-base mt-4 mb-1">$1</h2>').replace(/^# (.*$)/gm, '<h1 class="font-bold text-lg mt-4 mb-2">$1</h1>').replace(/^\d+\. (.*$)/gm, '<li class="ml-4 list-decimal">$1</li>').replace(/^- (.*$)/gm, '<li class="ml-4 list-disc">$1</li>') }} />
                 </div>
               </CardContent>
             </Card>
 
             {generatedPost.status === "in_review" && (
-              <div className="space-y-3">
+              <div className="space-y-3 pt-2">
                 <div className="flex gap-2">
-                  <Button onClick={handleApprove} size="sm" className="h-9 flex-1">
-                    <Check className="mr-1.5 h-3.5 w-3.5" />Approve
+                  <Button onClick={handleApprove} size="sm" className="h-9 flex-1 rounded-xl bg-accent hover:bg-accent/90 text-accent-foreground font-bold shadow-md shadow-accent/5 transition-all duration-300">
+                    <Check className="mr-1.5 h-4 w-4" />Approve
                   </Button>
-                  <Button onClick={handleReject} size="sm" variant="destructive" className="h-9 flex-1">
-                    <X className="mr-1.5 h-3.5 w-3.5" />Reject
+                  <Button onClick={handleReject} size="sm" variant="destructive" className="h-9 flex-1 rounded-xl font-bold transition-all duration-300">
+                    <X className="mr-1.5 h-4 w-4" />Reject
                   </Button>
                 </div>
                 <div className="flex gap-2">
-                  <Textarea placeholder="Feedback for regeneration..." value={feedback} onChange={e => setFeedback(e.target.value)} rows={1} className="resize-none text-sm h-9 min-h-9 py-2 rounded-lg" />
-                  <Button onClick={handleRegenerate} size="sm" variant="outline" disabled={isGenerating || !feedback.trim()} className="h-9 shrink-0 rounded-lg">
-                    <RotateCcw className="mr-1.5 h-3.5 w-3.5" />Redo
+                  <Textarea 
+                    placeholder="Provide feedback for intelligent regeneration..." 
+                    value={feedback} 
+                    onChange={e => setFeedback(e.target.value)} 
+                    rows={1} 
+                    className="resize-none text-xs h-9 min-h-9 py-2.5 rounded-xl bg-background/50 border border-border/15" 
+                  />
+                  <Button onClick={handleRegenerate} size="sm" variant="outline" disabled={isGenerating || !feedback.trim()} className="h-9 shrink-0 rounded-xl px-4 border-border/60 hover:bg-secondary/40 font-bold transition-all duration-300">
+                    <RotateCcw className="mr-1.5 h-3.5 w-3.5 text-accent" />Redo
                   </Button>
                 </div>
               </div>
@@ -219,100 +243,141 @@ export default function RedditGeneratePage() {
         )}
       </div>
 
-      {/* Input Area — fixed at bottom */}
-      <div className="sticky bottom-0 pt-4 border-t border-border bg-background">
-        <div className="rounded-xl border border-border bg-card overflow-hidden">
+      {/* Input Area — floating at bottom */}
+      <div className="sticky bottom-4 pt-2 bg-transparent z-40">
+        <div className="rounded-2xl border border-border/20 bg-card/85 backdrop-blur-lg shadow-xl overflow-hidden hover:border-border/30 transition-all duration-300">
           <Textarea
             placeholder={inputMode === "raw_idea" ? "Describe your post topic or idea... (Enter to generate)" : inputMode === "manual_reference" ? "Paste reference text (AI analyzes style only)..." : "Paste scraped content as reference..."}
             value={inputContent}
             onChange={e => setInputContent(e.target.value)}
             onKeyDown={handleKeyDown}
             rows={2}
-            className="resize-none text-sm min-h-[56px] max-h-[200px] border-0 focus-visible:ring-0 bg-transparent px-4 pt-3 pb-1"
+            className="resize-none text-xs min-h-[56px] max-h-[160px] border-0 focus-visible:ring-0 bg-transparent px-4 pt-3.5 pb-1 placeholder:text-muted-foreground/60 leading-relaxed"
           />
-          <div className="flex items-center justify-between px-3 pb-3 pt-1">
+          <div className="flex items-center justify-between px-3.5 pb-3.5 pt-1.5 border-t border-border/5">
             <div className="flex items-center gap-1.5 flex-wrap">
               <Select value={selectedSubreddit} onValueChange={setSelectedSubreddit}>
-                <SelectTrigger className="h-7 w-auto min-w-[110px] text-[11px] border-border/60 bg-secondary/50 gap-1 rounded-md">
+                <SelectTrigger className="h-7 w-auto min-w-[110px] text-[10px] font-bold border-border/10 bg-secondary/35 gap-1 rounded-lg hover:bg-secondary/60 hover:text-foreground transition-all duration-200">
                   <Hash className="h-3 w-3 text-accent" />
                   <SelectValue placeholder="Subreddit" />
                 </SelectTrigger>
-                <SelectContent>{subreddits.map(s => <SelectItem key={s.id} value={s.id}>r/{s.name}</SelectItem>)}</SelectContent>
+                <SelectContent>{subreddits.map(s => <SelectItem key={s.id} value={s.id} className="text-xs">r/{s.name}</SelectItem>)}</SelectContent>
               </Select>
+              
               <Select value={selectedIdentity} onValueChange={setSelectedIdentity}>
-                <SelectTrigger className="h-7 w-auto min-w-[90px] text-[11px] border-border/60 bg-secondary/50 gap-1 rounded-md">
+                <SelectTrigger className="h-7 w-auto min-w-[90px] text-[10px] font-bold border-border/10 bg-secondary/35 gap-1 rounded-lg hover:bg-secondary/60 hover:text-foreground transition-all duration-200">
                   <User className="h-3 w-3 text-accent" />
                   <SelectValue placeholder="Persona" />
                 </SelectTrigger>
-                <SelectContent>{identities.map(i => <SelectItem key={i.id} value={i.id}>{i.name}{i.is_default ? " ★" : ""}</SelectItem>)}</SelectContent>
+                <SelectContent>{identities.map(i => <SelectItem key={i.id} value={i.id} className="text-xs">{i.name}{i.is_default ? " ★" : ""}</SelectItem>)}</SelectContent>
               </Select>
+              
               <Select value={selectedTone} onValueChange={setSelectedTone}>
-                <SelectTrigger className="h-7 w-auto min-w-[80px] text-[11px] border-border/60 bg-secondary/50 gap-1 rounded-md">
+                <SelectTrigger className="h-7 w-auto min-w-[80px] text-[10px] font-bold border-border/10 bg-secondary/35 gap-1 rounded-lg hover:bg-secondary/60 hover:text-foreground transition-all duration-200">
                   <Palette className="h-3 w-3 text-accent" />
                   <SelectValue placeholder="Tone" />
                 </SelectTrigger>
-                <SelectContent>{tones.map(t => <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>)}</SelectContent>
+                <SelectContent>{tones.map(t => <SelectItem key={t.id} value={t.id} className="text-xs">{t.name}</SelectItem>)}</SelectContent>
               </Select>
+              
               {engagementItems.length > 0 && (
                 <button
                   onClick={() => setShowEngagementDialog(true)}
-                  className="flex items-center gap-1 h-7 px-2.5 text-[11px] font-medium rounded-md border border-border/60 bg-secondary/50 text-muted-foreground hover:text-foreground transition-colors"
+                  className="flex items-center gap-1.5 h-7 px-3 text-[10px] font-bold rounded-lg border border-border/10 bg-secondary/35 text-muted-foreground hover:text-foreground hover:bg-secondary/60 hover:border-accent/15 transition-all duration-200"
                 >
                   <Library className="h-3 w-3 text-accent" />
-                  {selectedEngagementIds.length > 0 ? `${selectedEngagementIds.length} refs` : "Refs"}
+                  <span>{selectedEngagementIds.length > 0 ? `${selectedEngagementIds.length} refs` : "Refs"}</span>
                 </button>
               )}
-              <div className="flex items-center rounded-md border border-border/60 bg-secondary/50 h-7 overflow-hidden">
+              
+              <div className="flex items-center rounded-lg border border-border/10 bg-secondary/35 h-7 overflow-hidden p-0.5">
                 {(["raw_idea", "manual_reference", "scraping_command"] as const).map(mode => (
-                  <button key={mode} onClick={() => setInputMode(mode)} className={`px-2 h-full text-[10px] font-medium transition-all duration-150 ${inputMode === mode ? "bg-accent text-accent-foreground" : "text-muted-foreground hover:text-foreground"}`}>
+                  <button 
+                    key={mode} 
+                    onClick={() => setInputMode(mode)} 
+                    className={`px-2.5 h-full text-[9px] font-bold rounded-md transition-all duration-300 ${
+                      inputMode === mode 
+                        ? "bg-accent/15 text-accent border border-accent/10 shadow-sm" 
+                        : "text-muted-foreground hover:text-foreground hover:bg-secondary/20"
+                    }`}
+                  >
                     {mode === "raw_idea" ? "Idea" : mode === "manual_reference" ? "Ref" : "Scrape"}
                   </button>
                 ))}
               </div>
             </div>
-            <Button onClick={handleGenerate} disabled={isGenerating} size="icon" className="h-9 w-9 rounded-lg shrink-0">
-              {isGenerating ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+            
+            <Button 
+              onClick={handleGenerate} 
+              disabled={isGenerating || !inputContent.trim() || !selectedSubreddit} 
+              size="icon" 
+              className="h-8 w-8 rounded-xl bg-accent hover:bg-accent/90 shadow-md shadow-accent/10 transition-all duration-300 hover:scale-[1.05] shrink-0"
+            >
+              {isGenerating ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Send className="h-3.5 w-3.5" />}
             </Button>
           </div>
         </div>
-        {error && <p className="text-xs text-destructive bg-destructive/10 rounded-lg px-3 py-2 mt-2">{error}</p>}
+        {error && <p className="text-xs text-destructive bg-destructive/10 border border-destructive/15 rounded-xl px-3 py-2.5 mt-2 animate-fade-in">{error}</p>}
       </div>
 
       {/* Engagement Library Dialog */}
       {showEngagementDialog && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50" onClick={() => setShowEngagementDialog(false)}>
-          <div className="bg-card border border-border rounded-xl w-full max-w-lg max-h-[70vh] overflow-hidden animate-scale-in" onClick={e => e.stopPropagation()}>
-            <div className="flex items-center justify-between px-5 py-4 border-b border-border">
-              <h3 className="text-sm font-semibold">Select Style References</h3>
-              <button onClick={() => setShowEngagementDialog(false)} className="text-muted-foreground hover:text-foreground">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/85 backdrop-blur-sm p-4 animate-fade-in" onClick={() => setShowEngagementDialog(false)}>
+          <Card 
+            className="w-full max-w-md max-h-[70vh] flex flex-col rounded-2xl border border-border/80 shadow-2xl overflow-hidden bg-card/95 backdrop-blur-md animate-in fade-in zoom-in duration-300"
+            onClick={e => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between px-5 py-4 border-b border-border/80 bg-secondary/35">
+              <div className="flex items-center gap-2">
+                <Library className="h-4 w-4 text-accent" />
+                <h3 className="text-xs font-bold uppercase tracking-wider text-foreground">Select Style References</h3>
+              </div>
+              <button onClick={() => setShowEngagementDialog(false)} className="text-muted-foreground hover:text-foreground p-1 rounded-lg hover:bg-secondary/30 transition-colors">
                 <X className="h-4 w-4" />
               </button>
             </div>
-            <div className="overflow-y-auto max-h-[50vh] p-4 space-y-2">
-              {engagementItems.map(item => (
-                <label key={item.id} className="flex items-start gap-3 p-3 rounded-lg border border-border hover:border-accent/30 cursor-pointer transition-colors">
-                  <input
-                    type="checkbox"
-                    checked={selectedEngagementIds.includes(item.id)}
-                    onChange={e => {
-                      if (e.target.checked) setSelectedEngagementIds(prev => [...prev, item.id])
-                      else setSelectedEngagementIds(prev => prev.filter(id => id !== item.id))
-                    }}
-                    className="mt-0.5 rounded"
-                  />
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium truncate">{item.title}</p>
-                    <p className="text-xs text-muted-foreground">{item.subreddit ? `r/${item.subreddit}` : ""} · Score: {item.score}</p>
-                  </div>
-                </label>
-              ))}
+            
+            <div className="overflow-y-auto max-h-[45vh] p-4 space-y-2.5">
+              {engagementItems.map(item => {
+                const isChecked = selectedEngagementIds.includes(item.id)
+                return (
+                  <label 
+                    key={item.id} 
+                    className={`flex items-start gap-3.5 p-3 rounded-xl border transition-all duration-200 cursor-pointer ${
+                      isChecked 
+                        ? "bg-accent/10 border-accent/40 shadow-sm" 
+                        : "bg-background/45 border-border/60 hover:bg-secondary/20 hover:border-accent/15"
+                    }`}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={isChecked}
+                      onChange={e => {
+                        if (e.target.checked) setSelectedEngagementIds(prev => [...prev, item.id])
+                        else setSelectedEngagementIds(prev => prev.filter(id => id !== item.id))
+                      }}
+                      className="mt-0.5 rounded accent-accent h-3.5 w-3.5 shrink-0"
+                    />
+                    <div className="flex-1 min-w-0">
+                      <p className="text-xs font-semibold text-foreground truncate">{item.title}</p>
+                      <p className="text-[10px] text-muted-foreground/80 mt-0.5">
+                        {item.subreddit ? `r/${item.subreddit}` : ""} · Score: {item.score}
+                      </p>
+                    </div>
+                  </label>
+                )
+              })}
             </div>
-            <div className="px-5 py-3 border-t border-border flex justify-end">
-              <button onClick={() => setShowEngagementDialog(false)} className="px-4 py-2 text-sm font-medium bg-accent text-accent-foreground rounded-lg">
+            
+            <div className="px-5 py-3.5 border-t border-border/80 bg-secondary/25 flex justify-end">
+              <button 
+                onClick={() => setShowEngagementDialog(false)} 
+                className="px-4 py-2 text-xs font-bold bg-accent text-accent-foreground rounded-xl shadow-md shadow-accent/5 hover:bg-accent/90 transition-all duration-300"
+              >
                 Done ({selectedEngagementIds.length} selected)
               </button>
             </div>
-          </div>
+          </Card>
         </div>
       )}
     </div>

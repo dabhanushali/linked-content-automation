@@ -353,6 +353,268 @@ async function scrapeViaTavily(opts: {
 }
 
 // ============================================================
+// RSS XML Provider (Block-Free Local Bypass)
+// ============================================================
+
+async function scrapeViaRss(opts: {
+  subreddit?: string
+  keywords: string
+  maxResults: number
+  sort: string
+  timeFilter: string
+}): Promise<ScrapedPost[]> {
+  const { subreddit, keywords, maxResults, sort, timeFilter } = opts
+  let url: string
+  if (subreddit && keywords && keywords.trim()) {
+    const encoded = encodeURIComponent(keywords)
+    const sortParam = sort === "rising" ? "new" : (sort === "hot" ? "new" : sort)
+    url = `https://www.reddit.com/r/${subreddit}/search.rss?q=${encoded}&restrict_sr=on&limit=${maxResults}&sort=${sortParam}&t=${timeFilter}`
+  } else if (subreddit) {
+    if (sort === "top") {
+      url = `https://www.reddit.com/r/${subreddit}/top.rss?limit=${maxResults}&t=${timeFilter}`
+    } else if (sort === "new") {
+      url = `https://www.reddit.com/r/${subreddit}/new.rss?limit=${maxResults}`
+    } else if (sort === "rising") {
+      url = `https://www.reddit.com/r/${subreddit}/rising.rss?limit=${maxResults}`
+    } else {
+      url = `https://www.reddit.com/r/${subreddit}/hot.rss?limit=${maxResults}`
+    }
+  } else {
+    const encoded = encodeURIComponent(keywords)
+    const sortParam = sort === "relevance" ? "relevance" : sort
+    url = `https://www.reddit.com/search.rss?q=${encoded}&limit=${maxResults}&sort=${sortParam}&t=${timeFilter}`
+  }
+
+  console.log(`[RSS Scraper] Fetching block-free RSS feed: ${url}`)
+  const res = await fetch(url, {
+    headers: {
+      "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, Gecko) Chrome/120.0.0.0 Safari/537.36",
+      "Accept": "application/xml, text/xml, */*"
+    },
+    signal: AbortSignal.timeout(15000)
+  })
+
+  if (!res.ok) {
+    throw new Error(`Reddit RSS endpoint returned status ${res.status}: ${res.statusText}`)
+  }
+
+  const xmlText = await res.text()
+  
+  const entries: ScrapedPost[] = []
+  const entryRegex = /<entry>([\s\S]*?)<\/entry>/g
+  let match
+  
+  while ((match = entryRegex.exec(xmlText)) !== null) {
+    const entry = match[1]
+    
+    // 1. Extract id
+    const idMatch = entry.match(/<id>t3_([\w]+)<\/id>/) || entry.match(/<id>([\w_]+)<\/id>/)
+    const reddit_id = idMatch ? idMatch[1] : `rss_${Math.random().toString(36).slice(2, 9)}`
+    
+    // 2. Extract title
+    const titleMatch = entry.match(/<title>([\s\S]*?)<\/title>/)
+    let title = titleMatch ? titleMatch[1].trim() : ""
+    title = title
+      .replace(/&amp;/g, "&")
+      .replace(/&lt;/g, "<")
+      .replace(/&gt;/g, ">")
+      .replace(/&quot;/g, '"')
+      .replace(/&#39;/g, "'")
+      .replace(/&#32;/g, " ")
+    
+    // 3. Extract link
+    const linkMatch = entry.match(/<link href="([\s\S]*?)"/)
+    const permalink = linkMatch ? linkMatch[1] : ""
+    
+    // 4. Extract author
+    const authorMatch = entry.match(/<author><name>\/u\/([\w-]+)<\/name>/) || entry.match(/<author><name>([\s\S]*?)<\/name>/)
+    const author = authorMatch ? authorMatch[1] : "[deleted]"
+    
+    // 5. Extract subreddit
+    const subMatch = entry.match(/<category term="([\w-]+)"/)
+    const subreddit = subMatch ? subMatch[1] : ""
+    
+    // 6. Extract published
+    const pubMatch = entry.match(/<published>([\s\S]*?)<\/published>/) || entry.match(/<updated>([\s\S]*?)<\/updated>/)
+    const created_utc = pubMatch ? Math.floor(new Date(pubMatch[1]).getTime() / 1000) : 0
+    
+    // 7. Extract selftext from content html
+    const contentMatch = entry.match(/<content type="html">([\s\S]*?)<\/content>/)
+    let selftext = ""
+    if (contentMatch) {
+      let decoded = contentMatch[1]
+        .replace(/&lt;/g, "<")
+        .replace(/&gt;/g, ">")
+        .replace(/&quot;/g, '"')
+        .replace(/&amp;/g, "&")
+        .replace(/&#39;/g, "'")
+        .replace(/&#32;/g, " ")
+      
+      const mdDivMatch = decoded.match(/<div class="md">([\s\S]*?)<\/div>/)
+      if (mdDivMatch) {
+        selftext = mdDivMatch[1].replace(/<[^>]*>/g, " ").trim()
+      } else {
+        selftext = decoded.replace(/<[^>]*>/g, " ").trim()
+      }
+    }
+    
+    entries.push({
+      reddit_id,
+      title,
+      author,
+      subreddit,
+      score: 1, // RSS feeds do not expose vote score directly
+      comment_count: 0, // RSS feeds do not expose comment count directly
+      permalink,
+      selftext: truncateSelftext(selftext),
+      upvote_ratio: 1.0,
+      created_utc
+    })
+    
+    if (entries.length >= maxResults) break
+  }
+  
+  return entries
+}
+
+// ============================================================
+// Puppeteer Provider (Local Only)
+// ============================================================
+
+async function scrapeViaPuppeteer(opts: {
+  subreddit?: string
+  keywords: string
+  maxResults: number
+  sort: string
+  timeFilter: string
+}): Promise<ScrapedPost[]> {
+  const { subreddit, keywords, maxResults, sort, timeFilter } = opts
+
+  // Try the block-free RSS/Atom scraper first to bypass Cloudflare Turnstile local blocks
+  try {
+    console.log(`[Puppeteer Scraper] Bypassing Turnstile via block-free RSS search feed...`)
+    const rssPosts = await scrapeViaRss(opts)
+    if (rssPosts.length > 0) {
+      console.log(`[Puppeteer Scraper] Block-free RSS search feed returned ${rssPosts.length} posts successfully!`)
+      return rssPosts
+    }
+  } catch (rssErr) {
+    console.warn(`[Puppeteer Scraper] Block-free RSS search fallback failed, trying local browser launch:`, rssErr)
+  }
+
+  // Fallback: full browser automation launch if RSS is not available
+  let puppeteer: any
+  try {
+    const puppeteerModule = await import("puppeteer")
+    puppeteer = puppeteerModule.default || puppeteerModule
+  } catch (e) {
+    console.error("[Puppeteer Scraper] Dynamic import error:", e)
+    throw new Error("Puppeteer is not installed or available in this runtime environment.")
+  }
+
+  let url: string
+  if (subreddit && keywords && keywords.trim()) {
+    const encoded = encodeURIComponent(keywords)
+    const sortParam = sort === "rising" ? "new" : (sort === "hot" ? "new" : sort)
+    url = `https://www.reddit.com/r/${subreddit}/search.json?q=${encoded}&restrict_sr=on&limit=${maxResults}&sort=${sortParam}&t=${timeFilter}`
+  } else if (subreddit) {
+    if (sort === "top") {
+      url = `https://www.reddit.com/r/${subreddit}/top.json?limit=${maxResults}&t=${timeFilter}`
+    } else if (sort === "new") {
+      url = `https://www.reddit.com/r/${subreddit}/new.json?limit=${maxResults}`
+    } else if (sort === "rising") {
+      url = `https://www.reddit.com/r/${subreddit}/rising.json?limit=${maxResults}`
+    } else {
+      url = `https://www.reddit.com/r/${subreddit}/hot.json?limit=${maxResults}`
+    }
+  } else {
+    const encoded = encodeURIComponent(keywords)
+    const sortParam = sort === "relevance" ? "relevance" : sort
+    url = `https://www.reddit.com/search.json?q=${encoded}&limit=${maxResults}&sort=${sortParam}&t=${timeFilter}`
+  }
+
+  console.log(`[Puppeteer Scraper] Launching browser...`)
+  let browser: any
+  const launchOptions: any = {
+    headless: true,
+    timeout: 12000, // 12 second launch timeout fail-safe
+    args: [
+      "--no-sandbox",
+      "--disable-setuid-sandbox",
+      "--disable-dev-shm-usage",
+      "--disable-gpu",
+      "--disable-software-rasterizer",
+      "--mute-audio"
+    ]
+  }
+
+  // Try launching system Chrome first on Windows to avoid local WebSocket/pipe hangs
+  try {
+    browser = await puppeteer.launch({
+      ...launchOptions,
+      executablePath: "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe"
+    })
+    console.log(`[Puppeteer Scraper] System Google Chrome launched successfully.`)
+  } catch (err) {
+    console.warn(`[Puppeteer Scraper] Failed to launch system Chrome, falling back to cached Chromium...`)
+    try {
+      browser = await puppeteer.launch(launchOptions)
+      console.log(`[Puppeteer Scraper] Cached Chromium browser launched successfully.`)
+    } catch (fallbackErr: any) {
+      console.error(`[Puppeteer Scraper] All browser launches failed:`, fallbackErr)
+      throw new Error(`Failed to start local browser: ${fallbackErr.message || fallbackErr}`)
+    }
+  }
+
+  try {
+    console.log(`[Puppeteer Scraper] Accessing browser pages...`)
+    const pages = await browser.pages()
+    const page = pages[0] || await browser.newPage()
+    
+    await page.setUserAgent("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
+    
+    console.log(`[Puppeteer Scraper] Fetching: ${url}`)
+    const response = await page.goto(url, { waitUntil: "domcontentloaded", timeout: 25000 })
+    
+    const status = response ? response.status() : 200
+    if (status === 403) {
+      throw new Error("Reddit blocked the Puppeteer session (403 - Network Security / Cloudflare). Please select the 'Apify' or 'Tavily' provider to scan this keyword using premium residential proxies.")
+    }
+
+    if (!response || !response.ok()) {
+      throw new Error(`Puppeteer failed to navigate. HTTP status: ${status}`)
+    }
+
+    const bodyText = await page.evaluate(() => document.body.innerText)
+    
+    if (bodyText.includes("Please wait for verification") || bodyText.includes("blocked by network security")) {
+      throw new Error("Reddit served a Cloudflare security challenge. To bypass this security wall, please use the 'Apify' or 'Tavily' provider which uses premium residential proxies.")
+    }
+
+    if (!bodyText || !bodyText.trim().startsWith("{")) {
+      throw new Error("Puppeteer loaded page, but it did not contain a valid JSON object. Reddit blocked the automated request.")
+    }
+
+    const json = JSON.parse(bodyText)
+    const children = json?.data?.children || []
+
+    if (children.length === 0) {
+      return []
+    }
+
+    return children
+      .filter((c: Record<string, unknown>) => c.kind === "t3")
+      .map((c: Record<string, unknown>) => extractPostFromRedditJson(c as Record<string, unknown>))
+      .slice(0, maxResults)
+  } finally {
+    if (browser) {
+      console.log(`[Puppeteer Scraper] Closing browser...`)
+      await browser.close()
+    }
+  }
+}
+
+// ============================================================
 // Helper: Extract subreddit name from URL
 // ============================================================
 
@@ -375,24 +637,41 @@ export async function scrapeReddit(opts: {
 }): Promise<ScrapedPost[]> {
   const { provider, ...scrapeOpts } = opts
 
+  console.log(`\x1b[36m[SCRAPER CORE] Initiating Reddit scrape. Target Keywords: "${opts.keywords}", Requested Provider: "${provider}"\x1b[0m`)
+
   // If a specific provider is requested, try it directly
   if (provider !== "reddit_api") {
     switch (provider) {
       case "apify":
+        console.log(`\x1b[33m[SCRAPER CORE] Executing scrape directly via APIFY...\x1b[0m`)
         return deduplicatePosts(await scrapeViaApify(scrapeOpts))
       case "firecrawl":
+        console.log(`\x1b[33m[SCRAPER CORE] Executing scrape directly via FIRECRAWL...\x1b[0m`)
         return deduplicatePosts(await scrapeViaFirecrawl(scrapeOpts))
       case "tavily":
+        console.log(`\x1b[33m[SCRAPER CORE] Executing scrape directly via TAVILY...\x1b[0m`)
         return deduplicatePosts(await scrapeViaTavily(scrapeOpts))
+      case "puppeteer":
+        console.log(`\x1b[33m[SCRAPER CORE] Executing scrape directly via LOCAL PUPPETEER...\x1b[0m`)
+        return deduplicatePosts(await scrapeViaPuppeteer(scrapeOpts))
     }
   }
 
   // Default: Reddit API with fallback chain
   try {
+    console.log(`\x1b[32m[SCRAPER CORE] Trying default primary provider: REDDIT_API...\x1b[0m`)
     const posts = await scrapeViaRedditApi(scrapeOpts)
+    console.log(`\x1b[32m[SCRAPER CORE] Successfully scraped ${posts.length} posts using REDDIT_API.\x1b[0m`)
     return deduplicatePosts(posts)
   } catch (e) {
-    console.warn(`Reddit API failed: ${e instanceof Error ? e.message : e}. Trying fallbacks...`)
+    console.warn(`\x1b[31m[SCRAPER CORE] REDDIT_API failed: ${e instanceof Error ? e.message : e}. Trying block-free RSS fallback...\x1b[0m`)
+    try {
+      const posts = await scrapeViaRss(scrapeOpts)
+      console.log(`\x1b[32m[SCRAPER CORE] Successfully scraped ${posts.length} posts using RSS fallback.\x1b[0m`)
+      return deduplicatePosts(posts)
+    } catch (rssErr) {
+      console.warn(`\x1b[31m[SCRAPER CORE] RSS fallback failed: ${rssErr instanceof Error ? rssErr.message : rssErr}. Proceeding to external fallbacks...\x1b[0m`)
+    }
   }
 
   // Load keys from env + database for fallback chain
@@ -401,31 +680,43 @@ export async function scrapeReddit(opts: {
   // Fallback 1: Apify
   if (keys.apify) {
     try {
+      console.log(`\x1b[32m[SCRAPER CORE] Fallback 1: Executing scrape via APIFY...\x1b[0m`)
       const posts = await scrapeViaApify(scrapeOpts)
+      console.log(`\x1b[32m[SCRAPER CORE] Successfully scraped ${posts.length} posts using APIFY fallback.\x1b[0m`)
       return deduplicatePosts(posts)
     } catch (e) {
-      console.warn(`Apify failed: ${e instanceof Error ? e.message : e}. Trying Firecrawl...`)
+      console.warn(`\x1b[31m[SCRAPER CORE] APIFY fallback failed: ${e instanceof Error ? e.message : e}. Trying Firecrawl...\x1b[0m`)
     }
+  } else {
+    console.log(`[SCRAPER CORE] APIFY key not configured. Skipping APIFY fallback...`)
   }
 
   // Fallback 2: Firecrawl
   if (keys.firecrawl) {
     try {
+      console.log(`\x1b[32m[SCRAPER CORE] Fallback 2: Executing scrape via FIRECRAWL...\x1b[0m`)
       const posts = await scrapeViaFirecrawl(scrapeOpts)
+      console.log(`\x1b[32m[SCRAPER CORE] Successfully scraped ${posts.length} posts using FIRECRAWL fallback.\x1b[0m`)
       return deduplicatePosts(posts)
     } catch (e) {
-      console.warn(`Firecrawl failed: ${e instanceof Error ? e.message : e}. Trying Tavily...`)
+      console.warn(`\x1b[31m[SCRAPER CORE] FIRECRAWL fallback failed: ${e instanceof Error ? e.message : e}. Trying Tavily...\x1b[0m`)
     }
+  } else {
+    console.log(`[SCRAPER CORE] FIRECRAWL key not configured. Skipping FIRECRAWL fallback...`)
   }
 
   // Fallback 3: Tavily
   if (keys.tavily) {
     try {
+      console.log(`\x1b[32m[SCRAPER CORE] Fallback 3: Executing scrape via TAVILY...\x1b[0m`)
       const posts = await scrapeViaTavily(scrapeOpts)
+      console.log(`\x1b[32m[SCRAPER CORE] Successfully scraped ${posts.length} posts using TAVILY fallback.\x1b[0m`)
       return deduplicatePosts(posts)
     } catch (e) {
-      console.warn(`Tavily failed: ${e instanceof Error ? e.message : e}`)
+      console.warn(`\x1b[31m[SCRAPER CORE] TAVILY fallback failed: ${e instanceof Error ? e.message : e}\x1b[0m`)
     }
+  } else {
+    console.log(`[SCRAPER CORE] TAVILY key not configured. Skipping TAVILY fallback...`)
   }
 
   throw new Error("All scraping providers failed. Check your API keys and try again.")

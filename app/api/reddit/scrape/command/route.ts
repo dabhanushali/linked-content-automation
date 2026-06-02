@@ -101,17 +101,21 @@ export async function POST(req: NextRequest) {
         results: posts,
       })
     } catch (scrapeError) {
-      // Update run as failed
+      const errorMsg = scrapeError instanceof Error ? scrapeError.message : "Scrape failed"
+      // Update run as failed and store error in results_json
       await supabase
         .from("reddit_scrape_runs")
-        .update({ status: "failed" })
+        .update({ 
+          status: "failed",
+          results_json: errorMsg
+        })
         .eq("id", run.id)
 
       return NextResponse.json(
         {
           run_id: run.id,
           status: "failed",
-          error: scrapeError instanceof Error ? scrapeError.message : "Scrape failed",
+          error: errorMsg,
         },
         { status: 502 }
       )

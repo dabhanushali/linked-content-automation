@@ -20,17 +20,19 @@ export function Navigation() {
   const pathname = usePathname()
 
   return (
-    <header className="sticky top-0 z-50 border-b border-sidebar-border bg-sidebar">
+    <header className="sticky top-0 z-50 border-b border-border/15 bg-card/75 backdrop-blur-xl shadow-sm">
       <div className="max-w-7xl mx-auto px-6">
-        <div className="flex h-12 items-center justify-between">
-          <Link href="/" className="flex items-center gap-2.5">
-            <div className="h-6 w-6 rounded-md bg-sidebar-primary flex items-center justify-center">
-              <span className="text-xs font-bold text-sidebar-primary-foreground">H</span>
+        <div className="flex h-14 items-center justify-between">
+          <Link href="/" className="flex items-center gap-2.5 group select-none">
+            <div className="h-7 w-7 rounded-xl bg-gradient-to-tr from-accent to-accent/60 shadow-md shadow-accent/10 flex items-center justify-center relative overflow-hidden transition-transform duration-300 group-hover:scale-105">
+              <span className="text-[10px] font-black text-accent-foreground">H</span>
             </div>
-            <span className="text-sm font-semibold text-sidebar-foreground tracking-tight">Harvey</span>
+            <span className="text-xs font-black tracking-widest bg-gradient-to-r from-foreground via-foreground/90 to-muted-foreground/80 bg-clip-text text-transparent uppercase whitespace-nowrap">
+              Harvey
+            </span>
           </Link>
-          <div className="flex items-center gap-1">
-            <nav className="flex items-center">
+          <div className="flex items-center gap-1.5">
+            <nav className="flex items-center gap-1">
               {navItems.map((item) => {
                 const isActive = pathname === item.href ||
                   (item.href !== "/" && pathname.startsWith(item.href))
@@ -39,10 +41,10 @@ export function Navigation() {
                     key={item.href}
                     href={item.href}
                     className={cn(
-                      "flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-xs font-medium transition-all duration-150",
+                      "flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-xs font-bold transition-all duration-300 relative border border-transparent select-none",
                       isActive
-                        ? "bg-sidebar-accent text-sidebar-primary"
-                        : "text-sidebar-foreground/70 hover:text-sidebar-foreground hover:bg-sidebar-accent/50"
+                        ? "bg-accent/10 text-accent border-accent/10"
+                        : "text-muted-foreground hover:text-foreground hover:bg-secondary/35"
                     )}
                   >
                     <item.icon className="h-3.5 w-3.5" />
@@ -51,7 +53,7 @@ export function Navigation() {
                 )
               })}
             </nav>
-            <div className="ml-2 pl-2 border-l border-sidebar-border/50">
+            <div className="ml-2 pl-2 border-l border-border/15">
               <ThemeToggle />
             </div>
           </div>

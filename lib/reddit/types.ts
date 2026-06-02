@@ -54,6 +54,20 @@ export interface ParsedIntent {
   is_reddit_specific: boolean
 }
 
+export interface RedditTopicInsight {
+  id: string
+  name: string
+  description: string
+  motiveIntent: string
+  sentiment: string
+  postIds: string[]
+}
+
+export interface RedditInsights {
+  topics: RedditTopicInsight[]
+  generalTakeaways: string[]
+}
+
 export interface ScrapeRun {
   id: string
   command_text: string
@@ -61,6 +75,7 @@ export interface ScrapeRun {
   actor_used: string | null
   result_count: number
   results_json: string | null
+  insights_json: RedditInsights | null
   status: "pending" | "running" | "complete" | "failed"
   created_at: string
 }
@@ -133,7 +148,7 @@ export interface GlobalPrompt {
 }
 
 // Scraping provider type used across the feature
-export type ScrapingProvider = "reddit_api" | "apify" | "firecrawl" | "tavily"
+export type ScrapingProvider = "reddit_api" | "apify" | "firecrawl" | "tavily" | "puppeteer"
 
 // Comment archetype options
 export type CommentArchetype =
@@ -149,3 +164,66 @@ export type CommentSize = "short" | "medium" | "long"
 
 // Input modes for post generation
 export type InputMode = "raw_idea" | "manual_reference" | "scraping_command"
+
+// ============================================================
+// GEO & Content Automation Platform Types
+// ============================================================
+
+export interface GeoKeyword {
+  id: string
+  phrase: string
+  status: "scanning" | "completed" | "failed"
+  ai_questions_json?: Array<{
+    question: string
+    search_intent: "informational" | "commercial" | "navigational"
+    motive_summary: string
+  }> | null
+  created_at: string
+}
+
+export interface GeoRedditPost {
+  id: string
+  keyword_id: string
+  title: string
+  url: string | null
+  subreddit: string | null
+  author: string | null
+  upvotes: number
+  num_comments: number
+  created_utc: number
+  selftext: string | null
+  created_at: string
+}
+
+export interface GeoCluster {
+  id: string
+  keyword_id: string
+  cluster_name: string
+  core_intent: "informational" | "commercial" | "transactional"
+  summary: string
+  total_posts: number
+  total_comments: number
+  hotness_score: number
+  post_ids: string[]
+}
+
+export interface GeoLlmSuggestion {
+  id: string
+  keyword_id: string
+  source: "gemini" | "chatgpt" | "claude" | "perplexity"
+  topic_title: string
+  suggested_angle: string
+  priority: "high" | "medium" | "low"
+}
+
+export interface GeoWebsiteIndex {
+  id: string
+  keyword_id: string
+  url: string
+  title: string
+  meta_description: string | null
+  matching_cluster_id: string | null
+  coverage_status: "uncovered" | "needs_optimization" | "covered"
+  scanned_at: string
+}
+

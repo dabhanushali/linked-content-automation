@@ -31,7 +31,14 @@ export function parseCommand(command: string): ParseCommandResult {
   const timeNumberPattern = /\d+\s*(?:hours?|hrs?|days?|weeks?|months?|years?)/i
   const cleanedForNumber = command.replace(timeNumberPattern, "")
   const numberMatch = cleanedForNumber.match(/(\d+)/)
-  const rawNumber = numberMatch ? parseInt(numberMatch[1], 10) : 25
+
+  // Resolve raw number: if explicit digit exists, use it; if "all" keyword is specified, use 50; else default 25
+  let rawNumber = 25
+  if (numberMatch) {
+    rawNumber = parseInt(numberMatch[1], 10)
+  } else if (/\ball\b/i.test(command)) {
+    rawNumber = 50
+  }
   const maxResults = Math.min(Math.max(rawNumber, 1), 50)
 
   // Extract sort indicator
@@ -146,7 +153,7 @@ function extractKeywords(command: string, subreddit: string | null): string {
 
   // Remove common filler words and command verbs
   cleaned = cleaned.replace(
-    /\b(completescrap|completescrape|scrap|scrape|scraping|find|get|fetch|search|show|give|me|the|from|about|posts|post|in|on|for|with|and|or|of|a|an|last|past|this|complete|run|execute|do|please|can|you)\b/gi,
+    /\b(completescrap|completescrape|scrap|scrape|scraping|find|get|fetch|search|show|give|me|the|from|about|posts|post|in|on|for|with|and|or|of|a|an|last|past|this|complete|run|execute|do|please|can|you|all)\b/gi,
     ""
   )
 
