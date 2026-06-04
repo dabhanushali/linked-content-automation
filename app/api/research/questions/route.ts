@@ -1243,15 +1243,21 @@ Rules:
 Preferred range:
 30-40 questions.
 
-If evidence only supports 16 strong questions:
-return 16.
-
-Never generate filler.
-
-Never generate placeholder questions.
-
-Never create extra questions just to reach a target count.
-2. Every generated question MUST be directly inspired by and grounded in a specific Reddit thread title, Google PAA question, Google related search, or Autocomplete suggestion provided in the context. Map these sources in the "source_type" and "source_title" fields.
+Generate as many highly relevant questions as possible from the provided context (aim for 25-30). 
+To reach this count without repetition, explore different business angles instead of rewording the same question. For example, instead of asking about cost multiple times, ask about timelines, hidden fees, finding partners, avoiding scams, measuring ROI, and scaling.
+If the evidence only supports 20 strong, unique questions, DO NOT generate redundant filler.
+2. Every generated question MUST be directly inspired by and grounded in a specific Reddit thread, PAA, or Autocomplete suggestion. 
+However, DO NOT just copy the source title's phrasing. You MUST translate the underlying pain point into a PUNCHY, CONVERSATIONAL, 5th-GRADE READING LEVEL question. 
+- Write it EXACTLY as a stressed-out business owner would type it into Google. Google searches are SHORT.
+- KEEP IT SHORT: Try to keep questions under 10 words. People don't type essays into Google.
+- Strip out ALL corporate jargon (e.g., never use words like "leverage", "boost", "utilize", "synergy", "optimize", "achieving", "strategies").
+- TRANSLATION EXAMPLES:
+  * Reddit Title: "How to leverage food delivery apps to boost sales"
+    -> Bad: "How Can I Boost My Restaurant's Sales with a Food Delivery App?"
+    -> Good: "Do Food Delivery Apps Actually Make Restaurants Money?"
+  * Reddit Title: "What strategies contributed to DoorDash's success?"
+    -> Bad: "What Strategies Contributed to DoorDash's Early Success in Food Delivery?"
+    -> Good: "How Did DoorDash Get Its First Customers?"
 3. REALISTIC SEARCH FORMATTING
 
 The generated questions must look exactly like actual Google queries or PAA (People Also Ask) questions. 
@@ -1262,9 +1268,11 @@ Example intents: "Budget planning for app development", "Finding developers or a
 
 Good Question Examples:
 - "How Much Does It Cost to Build a Laundry App?"
-- "Can I Hire Someone to Build My Laundry App?"
-- "How to Choose a Mobile App Development Agency"
-- "What Questions Should I Ask My App Developer?"
+- "Should I Hire a Freelancer or an App Development Agency?"
+- "Red Flags to Watch for When Hiring an App Development Company"
+- "What's Included in an App Development Contract You Should Know"
+- "What Happens If Your App Developer Disappears Mid-Project"
+- "How to Budget for Hidden Costs in App Development"
 
 Avoid generic topics:
 - role of
@@ -1274,10 +1282,19 @@ Avoid generic topics:
 - frameworks
 - methodologies
 - strategic roadmaps
+- digital transformation
 - industry analysis
 - market overview
 4. Enforce natural, conversational customer voice. Banish generic, robotic, and consultant-like templates.
-   - STRICTLY REJECT questions containing these phrases unless the exact wording literally exists in the source evidence: 'role of', 'importance of', 'benefits of', 'latest trends', 'best practices', 'methodology', 'framework', 'technology stack', 'optimization', 'user engagement', 'retention metrics', 'implementation strategy'.
+   - STRICTLY REJECT questions containing these phrases unless the exact wording literally exists in the source evidence: 'role of', 'importance of', 'benefits of', 'latest trends', 'best practices', 'methodology', 'framework', 'technology stack', 'optimization', 'user engagement', 'retention metrics', 'implementation strategy', 'roadmap', 'digital transformation', 'comprehensive guide', 'steps to develop'.
+   - IF A QUESTION SOUNDS LIKE IT BELONGS IN A CONSULTING REPORT OR ACADEMIC PAPER, REWRITE IT OR DELETE IT.
+   - STRICTLY REJECT questions asked from the perspective of a developer or programmer.
+   - ONLY generate questions from the perspective of the BUSINESS BUYER, FOUNDER, or CUSTOMER who wants to HIRE a service or understand the business/budget side of the app.
+   - FORCE THE FOLLOWING PSYCHOLOGICAL PATTERNS to match real buyer anxiety:
+     1. "Fear of Scams": Ask about red flags, disappearing developers, protecting IP, vetting experience.
+     2. "Logistics & Post-Launch": Ask about contracts, hidden costs, maintenance, licenses, and payment processing.
+     3. "Skepticism/ROI": Ask if the software is actually worth it, if it will really save money, or if a cheaper option exists.
+     4. "Decision Crossroads": Ask about Freelancer vs Agency, Custom vs White-label, MVP vs Full Build.
    - PREFER natural queries typed by real customers/buyers.
      * Bad (PM/Consultant style): "What criteria should I consider when choosing a mobile app development company?"
        Good (Customer style): "What Questions Should I Ask Before Hiring an App Developer?" or "How Do I Know If an App Developer Is Qualified?"
