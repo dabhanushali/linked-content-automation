@@ -132,6 +132,81 @@ interface FindQuestionsResponse {
   bonus_topics: string[]
 }
 
+async function fetchGoogleAutocomplete(query: string, coreEntity: string): Promise<string[]> {
+  const suffixes = [
+    "",
+    " vs",
+    " alternative",
+    " comparison",
+    " cost",
+    " pricing",
+    " how to",
+    " what is",
+    " free"
+  ]
+  const prefixes = [
+    "why use ",
+    "is "
+  ]
+
+  const terms = new Set<string>()
+  terms.add(query.trim())
+  if (coreEntity && coreEntity.trim()) {
+    terms.add(coreEntity.trim())
+  }
+
+  // Create suffix variations
+  suffixes.forEach(s => {
+    terms.add(`${query}${s}`)
+    if (coreEntity && coreEntity.trim()) {
+      terms.add(`${coreEntity}${s}`)
+    }
+  })
+
+  // Create prefix variations
+  prefixes.forEach(p => {
+    terms.add(`${p}${query}`)
+    if (coreEntity && coreEntity.trim()) {
+      terms.add(`${p}${coreEntity}`)
+    }
+  })
+
+  const uniqueTerms = Array.from(terms).filter(t => t.length > 2)
+  console.log(`  [Autocomplete] Fetching suggestions for ${uniqueTerms.length} variations...`)
+
+  const resultsSet = new Set<string>()
+
+  const promises = uniqueTerms.map(async (term) => {
+    try {
+      const url = `https://suggestqueries.google.com/complete/search?client=firefox&q=${encodeURIComponent(term)}`
+      const response = await fetch(url, {
+        headers: {
+          "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+        },
+        signal: AbortSignal.timeout(5000)
+      })
+
+      if (response.ok) {
+        const data = await response.json()
+        const suggestions = data[1] || []
+        suggestions.forEach((s: string) => {
+          if (s && s.trim()) {
+            resultsSet.add(s.trim())
+          }
+        })
+      }
+    } catch (err: any) {
+      // Ignore network errors to stay resilient
+    }
+  })
+
+  await Promise.allSettled(promises)
+  
+  const results = Array.from(resultsSet)
+  console.log(`  [Autocomplete] Scraped ${results.length} unique suggestions.`)
+  return results
+}
+
 export async function POST(req: NextRequest) {
   const startTime = Date.now()
 
@@ -175,12 +250,14 @@ Extract:
 1. "reddit_related_query_1": A short, extremely focused, and natural related query (no more than 3-4 words) that target customers (ICP) or professionals type into Reddit's search bar to find comparisons, alternatives, or reviews (e.g. use "gloriafood alternatives" or "gloriafood reviews" if query is "gloriafood"). Do NOT include site limits or operators.
 2. "reddit_related_query_2": Another distinct, highly focused related query (no more than 3-4 words) that captures a specific feature, integration, or B2B/SaaS pain point (e.g. use "gloriafood pricing" or "gloriafood pos integration" if query is "gloriafood").
 3. "target_subreddits": An array of up to 8 subreddits where our target customers (ICP) would hang out and discuss these niche topics. (Ensure names contain no spaces, e.g. "smallbusiness" or "restaurateur").
+4. "core_entity": The core underlying product, framework, software, or service subject name, without B2B/service/agency suffixes (e.g. use "gloriafood" if query is "gloriafood website design", "astro" if query is "astro development services", "pet care app" if query is "pet care app development service", or "construction software" if query is "construction project management software for small business").
 
 Return ONLY a raw JSON object in this exact format (no markdown formatting, no code fences, just raw JSON wrapped in braces):
 {
   "reddit_related_query_1": "string",
   "reddit_related_query_2": "string",
-  "target_subreddits": ["string"]
+  "target_subreddits": ["string"],
+  "core_entity": "string"
 }`
 
     // Use a fast model like llama-3.1-8b-instant or gpt-4o-mini if sonnet is not selected to keep it cheap/fast
@@ -192,13 +269,14 @@ Return ONLY a raw JSON object in this exact format (no markdown formatting, no c
     })
 
     const cleanJsonText = extractedText.replace(/```json\s*([\s\S]*?)\s*```/g, "$1").trim()
-    const { reddit_related_query_1, reddit_related_query_2, target_subreddits } = JSON.parse(cleanJsonText)
+    const { reddit_related_query_1, reddit_related_query_2, target_subreddits, core_entity } = JSON.parse(cleanJsonText)
 
     console.log(`\x1b[32m[STEP 1] ✓ QUERY EXPANSION DONE (${Date.now() - stage1Start}ms)\x1b[0m`)
     console.log("  ┌─ Input Query            :", query)
     console.log("  ├─ consumer_query         :", consumer_query)
     console.log("  ├─ reddit_related_query_1 :", reddit_related_query_1)
     console.log("  ├─ reddit_related_query_2 :", reddit_related_query_2)
+    console.log("  ├─ core_entity            :", core_entity)
     console.log("  └─ target_subreddits      :", JSON.stringify(target_subreddits))
 
     // ── STAGE 2: REDDIT SEARCH (JSON-first → RSS-fallback) ─────────────────
@@ -368,14 +446,14 @@ Return ONLY a raw JSON object in this exact format (no markdown formatting, no c
           const haystack = `${title} ${selftext}`.toLowerCase()
           
           // 1. Check relevance to exact original query
-          const origConcepts = query.toLowerCase().split(/\s+/).filter(w => w.length >= 3 && !stopWords.has(w))
-          const matchedOrig = origConcepts.filter(kw => haystack.includes(kw))
+          const origConcepts = query.toLowerCase().split(/\s+/).filter((w: string) => w.length >= 3 && !stopWords.has(w))
+          const matchedOrig = origConcepts.filter((kw: string) => haystack.includes(kw))
           const origThreshold = Math.min(2, origConcepts.length)
           const isOrigRelevant = matchedOrig.length >= origThreshold
 
           // 2. Check relevance to active search term (e.g. related query)
-          const activeConcepts = searchTerm.toLowerCase().split(/\s+/).filter(w => w.length >= 3 && !stopWords.has(w))
-          const matchedActive = activeConcepts.filter(kw => haystack.includes(kw))
+          const activeConcepts = searchTerm.toLowerCase().split(/\s+/).filter((w: string) => w.length >= 3 && !stopWords.has(w))
+          const matchedActive = activeConcepts.filter((kw: string) => haystack.includes(kw))
           const activeThreshold = Math.min(2, activeConcepts.length)
           const isActiveRelevant = matchedActive.length >= activeThreshold
 
@@ -480,7 +558,8 @@ Return ONLY a raw JSON object in this exact format (no markdown formatting, no c
       console.warn("  → Continuing with empty sources.")
     }
 
-    // ── STAGE 3: PAA SEARCH (Serper.dev or DataForSEO) ──────────────────────
+    // ── STAGE 3: PAA SEARCH (Serper.dev or DataForSEO) & GOOGLE AUTOCOMPLETE ──
+    const autocompletePromise = fetchGoogleAutocomplete(query, core_entity || "")
     let scrapedPAAQuestions: string[] = []
 
     if (providerToUse === "serper") {
@@ -672,14 +751,22 @@ Return ONLY a raw JSON object in this exact format (no markdown formatting, no c
     }
 
     // ── STAGE 4: LLM SYNTHESIS ───────────────────────────────────────────────
+    let autocompleteSuggestions: string[] = []
+    try {
+      autocompleteSuggestions = await autocompletePromise
+    } catch (err: any) {
+      console.warn("  ⚠ Autocomplete suggestions failed to resolve:", err?.message || err)
+    }
+
     const actualThreadsAnalyzed = redditSources.length
-    const hasPAAData = scrapedPAAQuestions.length > 0
-    const questionSource = hasPAAData ? "REAL PAA + LLM synthesis" : "LLM-ONLY (no real PAA data!)"
+    const hasPAAData = scrapedPAAQuestions.length > 0 || autocompleteSuggestions.length > 0
+    const questionSource = hasPAAData ? "REAL GOOGLE DATA (PAA / Autocomplete) + LLM synthesis" : "LLM-ONLY (no real search data!)"
 
     console.log(`\n\x1b[36m[STEP 4] LLM SYNTHESIS — Calling LLM ${model}...\x1b[0m`)
     console.log("  ┌─ Model              :", model)
     console.log("  ├─ Reddit sources     :", redditSources.length, "threads passed")
     console.log("  ├─ PAA questions      :", scrapedPAAQuestions.length, "real questions passed")
+    console.log("  ├─ Autocomplete suggs :", autocompleteSuggestions.length, "real suggestions passed")
     console.log("  ├─ threads_analyzed   :", actualThreadsAnalyzed, "(dynamic, not hardcoded)")
     console.log(`  ├─ Question source    : \x1b[${hasPAAData ? '32' : '33'}m${questionSource}\x1b[0m`)
     console.log("  └─ Output target      : 20-30 questions + 10 bonus topics")
@@ -701,7 +788,10 @@ We have fetched these Reddit discussions:
 ${JSON.stringify(redditSources, null, 2)}
 
 We scraped the following real questions, organic search result titles, and Google related searches searchers ask about "${consumer_query}":
-${JSON.stringify(scrapedPAAQuestions, null, 2)}`
+${JSON.stringify(scrapedPAAQuestions, null, 2)}
+
+We also fetched these Google Autocomplete search suggestions representing actual queries real users typed into Google:
+${JSON.stringify(autocompleteSuggestions, null, 2)}`
 
     console.log("\n\x1b[33m┌────────────────────────────────────────────────────────┐\x1b[0m")
     console.log("\x1b[33m│            [STEP 4] SYNTHESIS PROMPT SENT TO LLM       │\x1b[0m")
@@ -719,22 +809,42 @@ Your task is to generate a comprehensive, structured response matching this exac
   "threads_analyzed": ${actualThreadsAnalyzed},
   "subreddits": ["string"],
   "sources": [{ "subreddit": "string", "title": "string", "url": "string" }],
-  "questions": [{ "question": "Title Cased Question?", "search_intent": "Dynamic Category / Specific User Goal (e.g. Transactional / Cost Comparison or Informational / Setup Guide)", "geo_strategy": "A tactical recommendation for Generative Engine Optimization (GEO) showing exactly how to write/structure content so LLMs like Gemini, ChatGPT, or Perplexity confidently cite and reference the brand" }],
+  "grounded_questions": [
+    {
+      "source_type": "reddit | paa | related_search | autocomplete",
+      "source_title": "string",
+      "pain_point": "string",
+      "question": "string",
+      "search_intent": "string",
+      "geo_strategy": "string",
+      "category_bucket": "Pricing | Timeline | Hiring | Vendor Selection | Validation | Competition | Maintenance | Features | Launch | Risk"
+    }
+  ],
   "bonus_topics": ["string"]
 }
 
 Rules:
-1. All questions must be Title Case and end with a question mark.
-2. Generate exactly 20-30 questions. These MUST represent realistic, high-quality organic search queries that real people (specifically developers, tech founders, and product managers matching our ICP) type into Google regarding "${query}".
-   - They MUST remain strictly relevant to the core topic ("${query}") and the discussions in the Reddit threads.
-   - **STRICTLY NO REPETITION / REDUNDANCY:** All questions must be highly distinct. Do NOT include multiple questions that ask the same thing in different words or can be fully answered together in a single section of one blog post. (For example, do NOT include separate questions like "Is Astro faster than Next.js?", "Which is faster: Astro or Next.js?", and "Astro vs Next.js performance comparison"—merge those into one high-intent question, and use the other slots for unique developer/business concerns).
-   - Do NOT forcefully inject unrelated brand keywords or specific services (such as "restaurant management system", "LMS", "mobile app", "AI solutions") unless the query or Reddit sources are directly about them.
-   - Instead, capture authentic professional concerns: performance benchmarks, bundle sizes, CMS integrations, migration paths, hosting/infrastructure costs (Cloudflare, Vercel), learning curve, SEO rankings, and B2B scalability.
-   - ${hasPAAData ? 'Base your expansion on the real scraped Google PAA questions provided, enriching them with specific, deep technical and business angles discussed in the Reddit threads.' : 'Generate highly realistic search-optimized B2B questions that users would search for regarding this topic.'}
-3. For each generated question, you MUST provide a unique, highly specific, and accurate search intent in the "search_intent" field. Do NOT hardcode "Search Intent" or use placeholders! Capture the user's primary motivation (e.g. "Transactional / Checking free features", "Commercial / Toast comparison", "Informational / Table side QR setup", "Informational / Onboarding time", "Transactional / API POS feasibility", etc.).
-4. For each generated question, you MUST provide a unique, highly specific, and tactical "geo_strategy" recommendation. Generative Engine Optimization (GEO) is about ensuring custom SaaS brands capture LLM citations. The strategy must advise exactly how to write/structure the section (e.g. 'Use a structured comparative table matching Direct Costs', 'Embed a valid JSON-LD product schema', 'Incorporate high-contrast definition boxes with exact technical specs like "PCI-DSS Level 1 compliance"', etc.) so Gemini, ChatGPT, or Perplexity pulls it as a primary source.
-5. Exactly 10 bonus_topics. These should be high-value blog and social content topics that connect the query ("${query}") directly to custom software expertise, SaaS building, or MVP launch strategies suited for our Brand Persona.
-6. threads_analyzed MUST be exactly ${actualThreadsAnalyzed}.
+1. Generate between 35 and 40 distinct questions in the 'grounded_questions' array. Ensure they cover multiple different concerns. Our backend filters will select and deduplicate them down to a final set of 20-25 questions, so generate a rich candidate list.
+2. Every generated question MUST be directly inspired by and grounded in a specific Reddit thread title, Google PAA question, Google related search, or Autocomplete suggestion provided in the context. Map these sources in the "source_type" and "source_title" fields.
+3. Enforce natural, conversational customer voice. Banish generic, robotic, and consultant-like templates.
+   - STRICTLY REJECT questions containing these phrases unless the exact wording literally exists in the source evidence: 'role of', 'importance of', 'benefits of', 'latest trends', 'best practices', 'methodology', 'framework', 'technology stack', 'optimization', 'user engagement', 'retention metrics', 'implementation strategy'.
+   - PREFER natural queries typed by real customers/buyers.
+     * Bad (PM/Consultant style): "What criteria should I consider when choosing a mobile app development company?"
+       Good (Customer style): "What Questions Should I Ask Before Hiring an App Developer?" or "How Do I Know If an App Developer Is Qualified?"
+     * Bad: "What are the benefits of outsourcing mobile app development?"
+       Good: "Should I Hire an App Developer or an Agency?" or "Should I Hire a Startup or Established App Development Company?"
+     * Bad: "What are the costs associated with maintaining a mobile app?"
+       Good: "How Much Should I Budget for App Development?" or "How to Negotiate App Development Costs"
+     * Bad: "How to optimize pet care app for better user experience?"
+       Good: "What features does a successful pet care app need?" or "How to build a dog walking app like Rover?"
+     * Bad: "What is the difference between native and hybrid development?"
+       Good: "What's the Difference Between Native and Cross-Platform App Development?"
+   - Do NOT pollute the general questions with custom brand offerings (like "AI and machine learning features", "LMS", etc.) unless the user's business query specifically relates to them. Focus purely on the niche itself.
+4. STRICTLY NO REPETITION / REDUNDANCY: Keep only the single strongest version of any semantically similar questions (concept similarity > 80%).
+5. Category Diversity: Classify questions into the 10 buckets specified in the schema. Limit any single bucket to approximately 15% of the total questions (e.g., max 3-4 questions in any single category) to force broad coverage across pricing, timelines, hiring, mistakes, validation, maintenance, and alternatives.
+6. Generate exactly 10 bonus_topics. These MUST be derived ONLY from recurring Reddit pain points, PAA questions, or related searches in the context.
+   - NEVER generate generic SEO/agency blog categories (e.g., 'The Role of AI in...', 'Best Practices for...', 'Industry Trends...', 'Importance of Testing...').
+   - Instead, make them reflect real, practical user problems and operational details (e.g. 'pet care app monetization strategies', 'building trust in pet care marketplaces', 'app development payment structures (fixed vs. hourly)', 'portfolio review tips for evaluating developers', 'how to manage an app development project as a non-technical founder', 'how to brief a developer on your app idea', 'remote app development team management').
 7. Return ONLY raw JSON. No markdown, no code fences.`
 
     const synthesisText = await callLLM({
@@ -744,24 +854,234 @@ Rules:
     })
 
     const cleanSynthesisText = synthesisText.replace(/```json\s*([\s\S]*?)\s*```/g, "$1").trim()
-    const finalReport: FindQuestionsResponse = JSON.parse(cleanSynthesisText)
+    const parsedReport = JSON.parse(cleanSynthesisText)
 
-    // Normalize finalReport questions defensively to protect the frontend from runtime TypeErrors
+    // NLP Jaccard similarity helper with stopwords filtering and root tokenization
+    const nlpStopWords = new Set([
+      "how", "much", "does", "what", "are", "the", "with", "using", "really", "associated",
+      "what", "where", "when", "why", "who", "whom", "this", "that", "these", "those",
+      "should", "would", "could", "will", "shall", "can", "may", "might", "must",
+      "have", "has", "had", "been", "being", "were", "was", "are", "is", "was",
+      "and", "but", "for", "out", "off", "our", "your", "their", "about", "there",
+      "here", "some", "any", "all", "more", "most", "less", "least", "best", "good",
+      "bad", "better", "worse", "like", "such", "than", "then", "very", "too", "own"
+    ])
+
+    const dynamicStopWords = new Set([...nlpStopWords])
+    const queryAndEntityWords = `${query} ${core_entity || ""}`.toLowerCase()
+      .replace(/[^a-z0-9\s]/g, "")
+      .split(/\s+/)
+      .filter(w => w.length > 2)
+    queryAndEntityWords.forEach(w => {
+      dynamicStopWords.add(w)
+      if (w.endsWith("s")) dynamicStopWords.add(w.slice(0, -1))
+      if (["pet", "pets", "dog", "dogs", "cat", "cats", "vet", "veterinary", "animal", "animals"].includes(w)) {
+        dynamicStopWords.add("pet_root")
+      }
+      if (["builder", "builders", "build", "building", "develop", "developing", "development", "create", "creating", "make", "making"].includes(w)) {
+        dynamicStopWords.add("build_root")
+      }
+    })
+
+    const getNormalizedTokens = (str: string): Set<string> => {
+      const words = str.toLowerCase()
+        .replace(/[^a-z0-9\s]/g, "")
+        .split(/\s+/)
+        .filter(w => w.length > 2 && !dynamicStopWords.has(w))
+      
+      const normalized = words.map(w => {
+        // Cost roots
+        if (["cost", "costs", "price", "prices", "pricing", "budget", "budgeting", "rate", "rates", "fee", "fees", "charge", "charges", "expensive", "cheap", "cheapest", "pay", "paying"].includes(w)) {
+          return "cost_root"
+        }
+        // Alt roots
+        if (["alternative", "alternatives", "vs", "compare", "comparison", "comparisons", "comparable", "competitor", "competitors", "replace", "replacement"].includes(w)) {
+          return "alt_root"
+        }
+        // Build roots
+        if (["builder", "builders", "build", "building", "develop", "developing", "development", "create", "creating", "make", "making", "setup", "setting", "start", "starting"].includes(w)) {
+          return "build_root"
+        }
+        // Hire roots
+        if (["freelancer", "freelancers", "agency", "agencies", "company", "companies", "firm", "firms", "developer", "developers", "contractor", "contractors", "hire", "hiring", "team", "teams", "someone"].includes(w)) {
+          return "hire_root"
+        }
+        // Pet care roots
+        if (["pet", "pets", "dog", "dogs", "cat", "cats", "vet", "veterinary", "animal", "animals"].includes(w)) {
+          return "pet_root"
+        }
+        return w
+      })
+
+      return new Set(normalized)
+    }
+
+    const calculateSimilarity = (str1: string, str2: string): number => {
+      const s1 = getNormalizedTokens(str1)
+      const s2 = getNormalizedTokens(str2)
+      if (s1.size === 0 || s2.size === 0) return 0
+      const intersection = new Set([...s1].filter(x => s2.has(x)))
+      const union = new Set([...s1, ...s2])
+      return intersection.size / union.size
+    }
+
+    const bannedKeywords = [
+      "role of",
+      "importance of",
+      "benefits of",
+      "latest trends",
+      "current trends",
+      "best practices",
+      "methodology",
+      "framework",
+      "technology stack",
+      "optimization",
+      "user engagement",
+      "retention metrics",
+      "implementation strategy",
+      "key stages",
+      "essential features",
+      "innovative features",
+      "step-by-step guide",
+      "what criteria",
+      "what factors",
+      "process of building",
+      "steps involved",
+      "current state"
+    ]
+
+    // Create a haystack of all source evidence for strict customer voice phrase validation
+    const sourceEvidenceText = [
+      ...redditSources.map(s => `${s.title} ${s.subreddit}`),
+      ...scrapedPAAQuestions,
+      ...autocompleteSuggestions
+    ].join(" ").toLowerCase()
+
+    const validatedQuestions: any[] = []
+    const bucketCounts: Record<string, number> = {}
+
+    const rawGrounded = parsedReport.grounded_questions || parsedReport.questions || []
+    
+    for (const gq of rawGrounded) {
+      if (!gq || typeof gq !== "object") continue
+      
+      const questionText = gq.question || gq.q || gq.title || ""
+      if (!questionText || !questionText.includes("?")) continue
+
+      // Priority 1: Customer Voice Filter (Reject banned keywords unless literally in evidence)
+      let hasBannedWord = false
+      const qLower = questionText.toLowerCase()
+      for (const banned of bannedKeywords) {
+        if (qLower.includes(banned)) {
+          if (!sourceEvidenceText.includes(banned)) {
+            hasBannedWord = true
+            break
+          }
+        }
+      }
+      if (hasBannedWord) {
+        console.log(`  [Reject Banned Phrase] "${questionText}"`)
+        continue
+      }
+
+      // Priority 2: Deduplication (Jaccard similarity check against already accepted questions)
+      let isDuplicate = false
+      for (const aq of validatedQuestions) {
+        if (calculateSimilarity(questionText, aq.question) > 0.35) {
+          isDuplicate = true
+          break
+        }
+      }
+      if (isDuplicate) {
+        console.log(`  [Reject Duplicate] "${questionText}"`)
+        continue
+      }
+
+      // Priority 3: Diversity (Cap per category bucket - max 2 for first pass)
+      const bucket = gq.category_bucket || "General"
+      const currentCount = bucketCounts[bucket] || 0
+      if (currentCount >= 2) {
+        console.log(`  [Reject Bucket Cap] "${questionText}" in bucket "${bucket}"`)
+        continue
+      }
+
+      // If it passes all checks, accept it
+      bucketCounts[bucket] = currentCount + 1
+      validatedQuestions.push({
+        question: questionText,
+        search_intent: gq.search_intent || "Informational / General Query",
+        geo_strategy: gq.geo_strategy || "Structure your answer using a direct definition paragraph."
+      })
+    }
+
+    // Fallback pass if strict filters left us with fewer than 20 questions
+    if (validatedQuestions.length < 20) {
+      console.log(`  [Post-processing] Only ${validatedQuestions.length} questions passed strict filters. Running fallback pass...`)
+      for (const gq of rawGrounded) {
+        if (validatedQuestions.length >= 25) break
+        
+        const questionText = gq.question || gq.q || gq.title || ""
+        if (!questionText || !questionText.includes("?")) continue
+
+        // Check if already accepted
+        if (validatedQuestions.some(vq => vq.question === questionText)) continue
+
+        // Still enforce banned keywords
+        let hasBannedWord = false
+        const qLower = questionText.toLowerCase()
+        for (const banned of bannedKeywords) {
+          if (qLower.includes(banned)) {
+            if (!sourceEvidenceText.includes(banned)) {
+              hasBannedWord = true
+              break
+            }
+          }
+        }
+        if (hasBannedWord) continue
+
+        // Still enforce deduplication (slightly relaxed to 0.45)
+        let isDuplicate = false
+        for (const aq of validatedQuestions) {
+          if (calculateSimilarity(questionText, aq.question) > 0.45) {
+            isDuplicate = true
+            break
+          }
+        }
+        if (isDuplicate) continue
+
+        // Relaxed bucket cap to 3 in fallback pass
+        const bucket = gq.category_bucket || "General"
+        const currentCount = bucketCounts[bucket] || 0
+        if (currentCount >= 3) continue
+
+        bucketCounts[bucket] = currentCount + 1
+        validatedQuestions.push({
+          question: questionText,
+          search_intent: gq.search_intent || "Informational / General Query",
+          geo_strategy: gq.geo_strategy || "Structure your answer using a direct definition paragraph."
+        })
+      }
+    }
+
+    // Slice to max 25 to respect the 20-25 questions preference
+    const finalReport: FindQuestionsResponse = {
+      business: query,
+      cached: false,
+      status: "complete",
+      threads_analyzed: actualThreadsAnalyzed,
+      subreddits: [],
+      sources: redditSources.slice(0, 8),
+      questions: validatedQuestions.slice(0, 25),
+      bonus_topics: parsedReport.bonus_topics || []
+    }
+
+    // Defensive normalizer fallback generator if GEO strategy or search intent is missing/placeholder
     if (finalReport.questions && Array.isArray(finalReport.questions)) {
       finalReport.questions = finalReport.questions.map((q: any) => {
-        let questionText = ""
-        let intentText = ""
-        let geoText = ""
+        let questionText = q.question || ""
+        let intentText = q.search_intent || ""
+        let geoText = q.geo_strategy || ""
 
-        if (typeof q === "string") {
-          questionText = q
-        } else if (q && typeof q === "object") {
-          questionText = q.question || q.q || q.title || q.text || ""
-          intentText = q.search_intent || q.intent || q.purpose || ""
-          geoText = q.geo_strategy || q.geo || q.strategy || ""
-        }
-
-        // Defensive Fallback Generator if the LLM output is missing or uses generic values
         if (!intentText || intentText.toLowerCase() === "search intent" || intentText.toLowerCase() === "clear concise intent") {
           const qLower = questionText.toLowerCase()
           if (qLower.includes("cost") || qLower.includes("price") || qLower.includes("free") || qLower.includes("fee") || qLower.includes("charge")) {
@@ -777,7 +1097,6 @@ Rules:
           }
         }
 
-        // Defensive Fallback Generator for GEO Strategy if missing or placeholders are used
         if (!geoText || geoText.toLowerCase().includes("strategy") || geoText.length < 8) {
           const qLower = questionText.toLowerCase()
           if (qLower.includes("cost") || qLower.includes("price") || qLower.includes("fee") || qLower.includes("free")) {
@@ -792,7 +1111,7 @@ Rules:
         }
 
         return {
-          question: questionText || "Unknown Question?",
+          question: questionText,
           search_intent: intentText,
           geo_strategy: geoText
         }
@@ -803,23 +1122,14 @@ Rules:
     console.log("  ┌─ Questions generated :", finalReport.questions?.length || 0)
     console.log("  ├─ Bonus topics        :", finalReport.bonus_topics?.length || 0)
 
-    // Override with real scraped data and cohesive subreddits (union of active sources + target expansion)
-    finalReport.sources = redditSources.slice(0, 8)
-    finalReport.business = query
-    finalReport.cached = false
-    finalReport.status = "complete"
-    finalReport.threads_analyzed = actualThreadsAnalyzed
-
     const idealSubs = (target_subreddits || []).map((sub: string) => sub.replace(/^r\//i, ""))
     const combinedSubs: string[] = []
     const seenSubs = new Set<string>()
 
-    // Helper to normalize subreddit keys generically
     const getNormKey = (sub: string) => {
       return sub.toLowerCase().trim()
     }
 
-    // 1. Add all subreddits from actual scraped sources first, preserving exact original casing
     redditSources.forEach(src => {
       const key = getNormKey(src.subreddit)
       if (src.subreddit && !seenSubs.has(key)) {
@@ -828,8 +1138,7 @@ Rules:
       }
     })
 
-    // 2. Add remaining target subreddits from Stage 1 expansion
-    idealSubs.forEach(sub => {
+    idealSubs.forEach((sub: string) => {
       const key = getNormKey(sub)
       if (sub && !seenSubs.has(key)) {
         seenSubs.add(key)
@@ -837,8 +1146,8 @@ Rules:
       }
     })
 
-    // Capped at exactly 8 subreddits to match findquestions.com perfectly and prevent UI clutter!
-    finalReport.subreddits = combinedSubs.slice(0, 8)
+    // Prefix subreddits with r/ and cap at 8 to prevent UI clutter
+    finalReport.subreddits = combinedSubs.map(s => s.startsWith("r/") ? s : `r/${s}`).slice(0, 8)
 
     console.log("  └─ Subreddits in output:", JSON.stringify(finalReport.subreddits))
 
