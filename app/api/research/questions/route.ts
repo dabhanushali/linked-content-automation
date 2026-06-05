@@ -1221,57 +1221,6 @@ Google Autocomplete suggestions (what real users typed):
 
 ---
 
-BEFORE WRITING ANY QUESTIONS — BUILD YOUR SYNONYM LIST:
-
-The exact phrase "${query}" is BANNED from more than 5 questions.
-You must generate a "synonym_map" array with 8 natural synonyms BEFORE writing questions.
-
-Examples of natural buyer synonyms:
-- "restaurant software development" → POS system, ordering system, 
-  kitchen management app, table management system, reservation software,
-  digital menu, online ordering system, management tool
-- "ecommerce website development" → online store, shopping website, 
-  web store, Shopify store, product website, checkout page, retail site
-- "mobile app development" → app, mobile app, iOS app, Android app,
-  smartphone app, native app
-- "astro development services" → Astro website, Astro build, 
-  static site with Astro, Astro vs WordPress, Astro framework site, 
-  Astro portfolio, Astro for business, Astro CMS
-- "real estate software development" → property management system, CRM for realtors,
-  listing platform, MLS software, agent portal, deal tracking tool,
-  property database, tenant management app
-
-You MUST use words from synonym_map in at least 30 of your 40 questions.
-Using "${query}" exact phrase is limited to maximum 5 questions.
-
-FOR REAL ESTATE SOFTWARE QUERIES use these synonyms naturally:
-- CRM for realtors
-- property management system  
-- listing platform
-- MLS integration tool
-- deal tracking software
-- agent portal
-- tenant management app
-- property database
-- real estate CRM
-- leasing software
-
-BANNED: using "Real Estate Software" in more than 5 questions total.
-
-GOLD STANDARD for Real Estate Software questions:
-"What's the Best CRM for Real Estate Agents?"
-"Does My Agency Need a Property Management System?"
-"Toast vs Square for Real Estate: Which CRM Wins?"
-"Can I Track Deals Without Expensive CRM Software?"
-"What Happens if My Listing Platform Goes Down?"
-"How Much Does a Real Estate CRM Cost Per Month?"
-"Will a Property Management System Save Me Time?"
-"Can I Manage 100 Properties Without Software?"
-"What Are the Hidden Fees in Real Estate CRMs?"
-"Is Salesforce Overkill for a Small Agency?"
-
----
-
 TOPIC BOUNDARY — CRITICAL:
 
 Every question MUST be about "${query}" only.
@@ -1339,16 +1288,16 @@ GOLD STANDARD for Astro questions:
 "Can I Charge More for Astro Websites Than WordPress?"
 "Why Are Freelancers Switching From WordPress to Astro?"
 
-TYPE C — SOFTWARE PRODUCT (e.g. "restaurant software", "POS system"):
+TYPE C — SOFTWARE PRODUCT (e.g. "inventory software", "CRM system"):
 The buyer is evaluating software to purchase/use. Focus on:
-- Comparing specific named products (Toast vs Square, OpenTable vs Resy)
+- Comparing specific named products (Product A vs Product B)
 - Daily operational use cases
 - Staff training and adoption
 - Cost and hidden fees
 - Integration with existing systems
 - What happens when it goes down
 
-TYPE D — CONSUMER APP (e.g. "food delivery app", "pet care app"):
+TYPE D — CONSUMER APP (e.g. "fitness tracker", "meditation app"):
 The buyer is an end user. Focus on:
 - How to use it
 - Comparing apps
@@ -1362,31 +1311,33 @@ The buyer is an end user. Focus on:
 
 MANDATORY QUESTION RULES:
 
-RULE 1 — HARD 10-WORD LIMIT:
-Maximum 10 words per question. Most should be 6-8 words.
-BAD (13 words): "What Should I Look for in a Restaurant Management Software System?"
-GOOD (6 words): "What Should My Ordering System Include?"
-
-RULE 2 — TITLE CASE (proper, not all-caps):
+RULE 1 — TITLE CASE (proper, not all-caps):
 Capitalize: nouns, verbs, adjectives, adverbs, first word
 Lowercase: a, an, the, and, but, or, for, nor, on, at, to, by, in, of, vs
-WRONG: "What Is The Best Pos System For Small Restaurants?"
-RIGHT: "What's the Best POS System for Small Restaurants?"
-WRONG: "How Do I Choose The Right Online Ordering Software?"
-RIGHT: "How Do I Choose the Right Ordering Software?"
+WRONG: "What Is The Best Software For Small Businesses?"
+RIGHT: "What's the Best Software for Small Businesses?"
+WRONG: "How Do I Choose The Right Platform?"
+RIGHT: "How Do I Choose the Right Platform?"
 The query phrase "${query}" follows normal Title Case rules inside questions.
-WRONG: "Is Hybrid mobile app development Dead?"
-RIGHT: "Is Hybrid Mobile App Development Dead?"
+WRONG: "Is Custom software development Dead?"
+RIGHT: "Is Custom Software Development Dead?"
 
-RULE 3 — BUYER POV ONLY, NEVER DEVELOPER POV:
+RULE 2 — BUYER POV ONLY, NEVER DEVELOPER POV:
+The target audience is a non-technical Founder/Business Owner hiring an agency or evaluating a tool.
+They DO NOT write code. They DO NOT debug.
+
 BANNED developer questions:
+- "How to integrate [Tech/API/Hardware]?"
+- "Why is [Coding Task] so difficult?"
+- "How do I fix [Bug/Crash/Error]?"
+- "What is the best database for my project?"
 - "What Tech Stack Should I Use?"
 - "How Do I Write a Functional Requirement Document?"
-- "Is Python Good for Mobile Development?"
+- "Is Python Good for This Project?"
 - "How Does Serverless Architecture Work?"
 - "What Are the Differences Between Front End and Back End?"
 
-RULE 4 — BANNED QUESTION PATTERNS (reject any matching these):
+RULE 3 — BANNED QUESTION PATTERNS (reject any matching these):
 - "What Are the Best [X] Tips/Tools/Trends/Practices?"
 - "What Is the [X] Process?"
 - "The Role of [X] in [Y]"
@@ -1397,7 +1348,7 @@ RULE 4 — BANNED QUESTION PATTERNS (reject any matching these):
 - "What Are the Career Opportunities in [X]?"
 - Any question that sounds like a Wikipedia section heading
 
-RULE 5 — UNIQUE search_intent PER QUESTION:
+RULE 4 — UNIQUE search_intent PER QUESTION:
 Every search_intent must start with a DIFFERENT verb.
 Must be 4-8 plain English words describing buyer's real goal.
 BAD: "Astro Benefits" (too short, category label)
@@ -1406,6 +1357,26 @@ GOOD: "checking if monthly fees are worth it"
 GOOD: "worried about losing data during migration"
 GOOD: "comparing costs before making a decision"
 Banned opener: "trying to figure out" — never use this phrase.
+
+RULE 5 — NATURAL CONVERSATIONAL ENTITY NAMING:
+NEVER paste the exact literal phrase "${query}" into every question! That sounds robotic.
+Instead, use natural, conversational shorthand that a buyer would actually use.
+Vary what you call the product/service in every question (e.g. use "the app", "the software", "a developer", "an agency", "the platform", "this framework").
+
+Example for query "ecommerce website development":
+BAD: "How Much Does Ecommerce Website Development Cost?"
+GOOD: "How Much Does a Custom Online Store Cost?"
+GOOD: "How Much Do Ecommerce Developers Charge?"
+
+Example for query "ai agent development service":
+BAD: "Is AI Agent Development Service Worth It?"
+GOOD: "Are Custom AI Agents Worth It?"
+GOOD: "Do I Need to Hire an AI Agency?"
+
+RULE 6 — FEAR FRAMING RULE:
+When writing "What Happens if My [person] disappears/quits/goes silent" — the timing must be DURING the project, not after.
+"After launch" removes the fear entirely.
+Always use: "mid-project", "halfway through", "before finishing", "during development", or no timing qualifier at all.
 
 ---
 
@@ -1425,22 +1396,62 @@ MANDATORY BUYER JOURNEY — include at least 2 per category:
 
 ---
 
+15 MANDATORY QUESTION FRAMES:
+Use these exact syntactic frames for your questions:
+
+1. "Can X Really Do Y?" (e.g. Can [thing] Really [benefit]?)
+2. "Do I Really Need X?" (e.g. Do I Really Need [product]?)
+3. "What Happens if X Goes Wrong?" (e.g. What Happens if [thing] [failure scenario]?)
+4. "What's the Best X for [Specific Situation]?"
+5. "How Do I Know if X?" (e.g. How Do I Know if/when [situation]?)
+6. "X vs Y: Which Is Better/Cheaper/Right for Me?"
+7. "Should I [Action] or [Alternative Action]?"
+8. "How Much Does/Is X?"
+9. "Can I Do X Without Y?" (e.g. Can I [goal] Without [thing to avoid]?)
+10. "Why Is X So [Negative Adjective]?"
+11. "Why Is X So Hard/Expensive?"
+12. "What Do I Actually Need?" (e.g. What [things] Do I Actually Need?)
+13. "Is X Worth It for [Specific Context]?"
+14. "How Long Does X Take?"
+15. "What If My [Person/Thing] [Fails/Disappears/Stops]?"
+
+MASTER FORMULA:
+[Emotional trigger word] + [Specific named thing] + [Buyer's real situation]
+Top triggers: Really, Actually, If, Without, Worth
+
+---
+
+EMOTIONAL PATTERN CHECKLIST — include at least 3 questions per pattern:
+
+1. SCAM FEAR: "red flags", "warning signs", "safely", "trust", "disappear"
+2. HIDDEN COST FEAR: "hidden fees", "after launch", "ongoing", "maintenance", "really costs"  
+3. OWNERSHIP FEAR: "who owns", "do I own", "locked in", "access", "control"
+4. TIME FEAR: "how long", "fastest", "launch", "deadline", "quickly"
+5. ROI DOUBT: "worth it", "really", "save money", "actually need", "justify"
+6. FAILURE FEAR: "what if", "what happens if", "breaks", "crashes", "goes down"
+7. DIY DOUBT: "can I", "myself", "without coding", "alone", "no-code"
+8. COMPARISON PARALYSIS: "vs", "or", "which is better", "difference between"
+
+The best questions combine TWO patterns.
+Aim for at least 5 questions that hit two patterns simultaneously.
+
+---
+
 OUTPUT STRUCTURE — generate in this EXACT order:
 
 {
   "business": "${query}",
-  "synonym_map": ["list 8 natural buyer-vocabulary synonyms here — generate SECOND"],
   "cached": false,
   "status": "complete",
   "threads_analyzed": \${actualThreadsAnalyzed},
   "subreddits": [],
   "sources": \${JSON.stringify(uniqueSources.slice(0, 20))},
   "bonus_topics": [
-    "10 specific actionable blog post titles here — generate THIRD"
+    "10 specific actionable blog post titles here — generate FIRST"
   ],
   "questions": [
     {
-      "question": "Title Case question under 10 words ending with ?",
+      "question": "Title Case question ending with ?",
       "search_intent": "unique 4-8 word buyer goal description"
     }
   ]
@@ -1488,9 +1499,7 @@ GOOD bonus_topics sound like they solve a specific problem:
 FINAL COUNT CHECK before closing JSON:
 □ bonus_topics = exactly 10?
 □ questions = 35-40?
-□ Every question under 10 words?
 □ Proper Title Case (not every word capitalized)?
-□ "${query}" appears in 5 or fewer questions?
 □ Every search_intent unique and starts with different word?
 □ At least 2 questions per buyer journey category?
 
@@ -1621,6 +1630,15 @@ Return ONLY raw JSON. No markdown. No code fences. No explanation.`
     const validatedQuestions: any[] = []
     const bucketCounts: Record<string, number> = {}
 
+    // Skeleton Template Deduplication Helper
+    const getQuestionSkeleton = (q: string) => {
+      return q.toLowerCase()
+        .replace(/\b(astro|healthcare|ai agent|mobile app|restaurant|ecommerce)\b/gi, 'TOPIC')
+        .replace(/\b(blockchain|iot|vr|nlp|machine learning|gamification|voice|flutter|react native)\b/gi, 'TECH')
+        .replace(/\b(develop|build|create|integrate|implement)\b/gi, 'BUILD')
+    }
+    const seenSkeletons = new Set<string>()
+
     const rawGrounded = parsedReport.grounded_questions || parsedReport.questions || []
     const intentCounts: Record<string, number> = {}
     for (const gq of rawGrounded) {
@@ -1665,11 +1683,19 @@ Return ONLY raw JSON. No markdown. No code fences. No explanation.`
         continue
       }
 
+      // Priority 3: Skeleton Template Deduplication
+      const skeleton = getQuestionSkeleton(questionText)
+      if (seenSkeletons.has(skeleton)) {
+        console.log(`  [Reject Template Duplicate] "${questionText}"`)
+        continue
+      }
+      seenSkeletons.add(skeleton)
+
       // If it passes all checks, accept it
       const intent = gq.search_intent || "Informational"
 
       const currentIntentCount = intentCounts[intent] || 0
-      if (currentIntentCount >= 8) {
+      if (currentIntentCount >= 4) {
         console.log(`[INTENT CAP] ${intent}`)
         continue
       }
@@ -1722,10 +1748,18 @@ Return ONLY raw JSON. No markdown. No code fences. No explanation.`
           continue
         }
 
+        // Priority 3: Skeleton Template Deduplication
+        const skeleton = getQuestionSkeleton(questionText)
+        if (seenSkeletons.has(skeleton)) {
+          console.log(`[QUESTION REJECTED - TEMPLATE DUPLICATE] "${questionText}"`)
+          continue
+        }
+        seenSkeletons.add(skeleton)
+
         const intent = gq.search_intent || "Informational"
 
         const currentIntentCount = intentCounts[intent] || 0
-        if (currentIntentCount >= 8) {
+        if (currentIntentCount >= 4) {
           console.log(`[INTENT CAP] ${intent}`)
           continue
         }
