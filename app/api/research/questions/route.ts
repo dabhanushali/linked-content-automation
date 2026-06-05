@@ -112,7 +112,6 @@ async function callLLM(options: LLMOptions): Promise<string> {
 interface PAAQuestion {
   question: string
   search_intent: string
-  geo_strategy: string
 }
 
 interface RedditSource {
@@ -128,8 +127,8 @@ interface FindQuestionsResponse {
   threads_analyzed: number
   subreddits: string[]
   sources: RedditSource[]
-  questions: PAAQuestion[]
   bonus_topics: string[]
+  questions: PAAQuestion[]
 }
 
 function cleanAndParseJSON(text: string): any {
@@ -314,8 +313,19 @@ CRITICAL SUBREDDIT SELECTION RULES:
 - Prioritize HYPER-NICHE, industry-specific subreddits over generic business or tech ones.
 - For example, if the query is "laundry app", prefer r/laundry, r/laundromat, r/drycleaning over r/startups or r/Entrepreneur.
 - If the query is "pet care software", prefer r/petsitting, r/RoverPetSitting, r/doggrooming over r/SaaS.
-- If the query is "restaurant POS", prefer r/KitchenConfidential, r/restaurantowners, r/TalesFromYourServer over r/smallbusiness.
 - Only use generic software/business subreddits (like r/SaaS, r/startups, r/AppDevelopment, r/Entrepreneur, r/Upwork, r/freelance, r/software, r/coding) as a secondary fallback if the niche is too narrow.
+
+SUBREDDIT CROSS-CONTAMINATION — NEVER mix industry subreddits:
+
+If query is about ECOMMERCE:
+Use: r/ecommerce, r/Shopify, r/WooCommerce, r/smallbusiness
+NEVER use: r/restaurantowners, r/KitchenConfidential, r/foodservice
+
+If query is about RESTAURANTS:
+Use: r/restaurantowners, r/KitchenConfidential, r/FoodService  
+NEVER use: r/ecommerce, r/Shopify, r/webdev (unless specifically about restaurant websites)
+
+The subreddits must match the INDUSTRY of the query, not just the technology.
 
 Examples:
 
@@ -926,8 +936,7 @@ Return ONLY a raw JSON object:
     }
 
     // ── STAGE 3: PAA SEARCH (Serper.dev or DataForSEO) & GOOGLE AUTOCOMPLETE ──
-    // const autocompletePromise = fetchGoogleAutocomplete(query, core_entity || "")
-    const autocompletePromise = Promise.resolve([])
+    const autocompletePromise = fetchGoogleAutocomplete(query, "");
     let scrapedPAAQuestions: string[] = []
 
     if (providerToUse === "serper") {
@@ -1147,173 +1156,351 @@ Return ONLY a raw JSON object:
 
     const stage4Start = Date.now()
 
-    const synthesisPrompt = `You analyze how real people search Google.
+    // Deduplicate sources by title similarity before passing to LLM
+    const deduplicatedSources = redditSources.filter((source, index, self) => {
+      return index === self.findIndex(s => {
+        const titleA = s.title.toLowerCase().slice(0, 50)
+        const titleB = source.title.toLowerCase().slice(0, 50)
+        return titleA === titleB
+      })
+    })
 
-You are NOT an SEO strategist.
-You are NOT a content marketer.
-You are NOT a blog writer.
-You are NOT a consultant.
+    // Filter sources to only those relevant to the core query
+    const relevantSources = deduplicatedSources.filter(source => {
+      const titleLower = source.title.toLowerCase()
+      const queryWords = query.toLowerCase().split(/\s+/).filter(w => w.length > 3)
+      const coreEntityWords = (core_entity || "").toLowerCase().split(/\s+/).filter(w => w.length > 3)
 
-Your job is to reconstruct authentic search behavior from:
+      const allRelevantWords = [...queryWords, ...coreEntityWords]
+      const matchCount = allRelevantWords.filter(word => titleLower.includes(word)).length
 
-- Reddit discussions
-- Google PAA questions
-- Related searches
-- Autocomplete suggestions
+      return matchCount >= 1
+    })
 
-Generate questions exactly as real customers would type them into Google.
+    // FALLBACK: if too few relevant sources, use all deduplicated sources
+    const uniqueSources = relevantSources.length >= 5
+      ? relevantSources
+      : deduplicatedSources
 
-The searcher is usually:
+    const fullSynthesisPrompt = `You are analyzing real search behavior for: "${query}"
+Brand Persona: "${persona}"
+Target Customer (ICP): "${icp}"
 
-The searcher is usually:
+QUALITY ENFORCEMENT — READ THIS FIRST:
 
-- trying to solve a problem
-- trying to compare options
-- trying to avoid a mistake
-- trying to switch tools
-- trying to learn something
-- trying to validate an idea
-- trying to find alternatives
-- trying to troubleshoot
-At least 50% of generated questions must come from:
+Every single question you generate MUST:
+1. Start with a capital letter
+2. End with a question mark
+3. Follow proper Title Case (not all lowercase, not all caps)
+4. Be a complete English question
 
-- beginner intent
-- comparison intent
-- migration intent
-- troubleshooting intent
-- alternatives intent
+If you find yourself writing lowercase questions or dropping question marks,
+STOP and restart that question correctly.
 
-Do not over-focus on hiring, agencies, pricing, or vendors.
-If a question sounds like:
-- a blog title
-- a consultant recommendation
-- a content marketing topic
-- a product management discussion
+There is NO acceptable reason to write lowercase questions.
+"what is astro?" is ALWAYS wrong.
+"What Is Astro?" is ALWAYS right.
 
-reject it.
+This rule applies even if you are running low on space.
+It is better to write 30 high-quality questions than 40 degraded ones.
 
-Keep only questions that sound like real searches.
+If fewer than 8 Reddit sources are provided, compensate by generating MORE 
+LLM-originated questions based on what buyers in this niche would realistically search.
+The minimum question count of 35 NEVER changes regardless of source count.
 
-Our Brand Persona Profile: "${persona}"
-Our Target Customer (ICP): "${icp}"
+REAL DATA COLLECTED:
 
-The user's business niche query is: "${query}"
-We have fetched these Reddit discussions:
-${JSON.stringify(redditSources, null, 2)}
+Reddit discussions found:
+\${JSON.stringify(uniqueSources, null, 2)}
 
-We scraped the following real questions, organic search result titles, and Google related searches searchers ask about "${consumer_query}":
-${JSON.stringify(scrapedPAAQuestions, null, 2)}
+Real Google PAA questions and related searches for "\${consumer_query}":
+\${JSON.stringify(scrapedPAAQuestions, null, 2)}
 
-We also fetched these Google Autocomplete search suggestions representing actual queries real users typed into Google:
-${JSON.stringify(autocompleteSuggestions, null, 2)}`
+Google Autocomplete suggestions (what real users typed):
+\${JSON.stringify(autocompleteSuggestions, null, 2)}
 
-    console.log("\n\x1b[33m┌────────────────────────────────────────────────────────┐\x1b[0m")
-    console.log("\x1b[33m│            [STEP 4] SYNTHESIS PROMPT SENT TO LLM       │\x1b[0m")
-    console.log("\x1b[33m└────────────────────────────────────────────────────────┘\x1b[0m")
-    console.log(synthesisPrompt)
-    console.log("\x1b[33m├────────────────────────────────────────────────────────┤\x1b[0m\n")
+---
 
-    const fullSynthesisPrompt = `${synthesisPrompt}
+BEFORE WRITING ANY QUESTIONS — BUILD YOUR SYNONYM LIST:
 
-Your task is to generate a comprehensive, structured response matching this exact schema:
+The exact phrase "${query}" is BANNED from more than 5 questions.
+You must generate a "synonym_map" array with 8 natural synonyms BEFORE writing questions.
+
+Examples of natural buyer synonyms:
+- "restaurant software development" → POS system, ordering system, 
+  kitchen management app, table management system, reservation software,
+  digital menu, online ordering system, management tool
+- "ecommerce website development" → online store, shopping website, 
+  web store, Shopify store, product website, checkout page, retail site
+- "mobile app development" → app, mobile app, iOS app, Android app,
+  smartphone app, native app
+- "astro development services" → Astro website, Astro build, 
+  static site with Astro, Astro vs WordPress, Astro framework site, 
+  Astro portfolio, Astro for business, Astro CMS
+- "real estate software development" → property management system, CRM for realtors,
+  listing platform, MLS software, agent portal, deal tracking tool,
+  property database, tenant management app
+
+You MUST use words from synonym_map in at least 30 of your 40 questions.
+Using "${query}" exact phrase is limited to maximum 5 questions.
+
+FOR REAL ESTATE SOFTWARE QUERIES use these synonyms naturally:
+- CRM for realtors
+- property management system  
+- listing platform
+- MLS integration tool
+- deal tracking software
+- agent portal
+- tenant management app
+- property database
+- real estate CRM
+- leasing software
+
+BANNED: using "Real Estate Software" in more than 5 questions total.
+
+GOLD STANDARD for Real Estate Software questions:
+"What's the Best CRM for Real Estate Agents?"
+"Does My Agency Need a Property Management System?"
+"Toast vs Square for Real Estate: Which CRM Wins?"
+"Can I Track Deals Without Expensive CRM Software?"
+"What Happens if My Listing Platform Goes Down?"
+"How Much Does a Real Estate CRM Cost Per Month?"
+"Will a Property Management System Save Me Time?"
+"Can I Manage 100 Properties Without Software?"
+"What Are the Hidden Fees in Real Estate CRMs?"
+"Is Salesforce Overkill for a Small Agency?"
+
+---
+
+TOPIC BOUNDARY — CRITICAL:
+
+Every question MUST be about "${query}" only.
+Before writing each question: "Would someone Googling '${query}' find this relevant?"
+If NO — do not write it.
+
+IGNORE any Reddit sources about different industries or unrelated topics.
+
+---
+
+QUERY TYPE RULES:
+
+Identify which type "${query}" is, then apply those rules:
+
+TYPE A — B2B SERVICE (e.g. "mobile app development", "ecommerce website development"):
+The buyer is hiring someone. Focus on:
+- Hiring decisions (freelancer vs agency)
+- Cost and timeline
+- Red flags and risks  
+- What to ask before hiring
+- What happens post-launch
+- DIY vs professional
+
+FOR TYPE B — TECHNICAL FRAMEWORK QUERIES:
+
+The buyer searching "${query}" is ONE of these people:
+A) A small business owner who heard about this framework and wants to know if it's worth it
+B) A freelancer evaluating whether to learn this tool
+C) A startup founder comparing frameworks for their project
+
+Generate ALL questions from perspective A, B, or C ONLY.
+
+BANNED for Type B:
+- Questions about how to write code
+- Questions about debugging or fixing errors  
+- Questions about server configuration
+- Questions about specific technical integrations
+- Questions about backups, security configs, or devops
+
+REQUIRED for Type B — use these specific question angles:
+- "[Framework] vs [Alternative]: which should I choose?"
+- "Is [Framework] good for [specific use case like SEO/ecommerce/blogs]?"
+- "How much does a [Framework] developer cost?"
+- "How long to build a [use case] with [Framework]?"
+- "Is [Framework] better than WordPress for my business?"
+- "Can I edit my [Framework] site without a developer?"
+- "Should I learn [Framework] or just use WordPress?"
+- "Is [Framework] good for non-technical founders?"
+- "Is [Framework] worth learning as a freelancer?"
+- "Can I charge more for [Framework] than [Alternative]?"
+- "Are clients asking for [Framework] sites yet?"
+
+GOLD STANDARD for Astro questions:
+"Is Astro Better Than WordPress for SEO?"
+"How Much Does an Astro Developer Cost per Hour?"
+"Can I Update an Astro Site Without Coding?"
+"Astro vs Webflow: Which Is Cheaper to Maintain?"
+"Is Astro Good for a Small Business Website?"
+"Should I Learn Astro or Stick With WordPress?"
+"How Fast Is an Astro Site Compared to WordPress?"
+"Can My Client Edit Their Astro Website Themselves?"
+"Is Astro Worth Learning for Freelancers in 2025?"
+"What Kind of Sites Is Astro Actually Built For?"
+"Is Astro Worth Learning as a Freelancer?"
+"Can I Charge More for Astro Websites Than WordPress?"
+"Why Are Freelancers Switching From WordPress to Astro?"
+
+TYPE C — SOFTWARE PRODUCT (e.g. "restaurant software", "POS system"):
+The buyer is evaluating software to purchase/use. Focus on:
+- Comparing specific named products (Toast vs Square, OpenTable vs Resy)
+- Daily operational use cases
+- Staff training and adoption
+- Cost and hidden fees
+- Integration with existing systems
+- What happens when it goes down
+
+TYPE D — CONSUMER APP (e.g. "food delivery app", "pet care app"):
+The buyer is an end user. Focus on:
+- How to use it
+- Comparing apps
+- Pricing and fees
+- Safety and trust
+- Features they care about
+
+"${query}" is TYPE: [determine this yourself based on the query]
+
+---
+
+MANDATORY QUESTION RULES:
+
+RULE 1 — HARD 10-WORD LIMIT:
+Maximum 10 words per question. Most should be 6-8 words.
+BAD (13 words): "What Should I Look for in a Restaurant Management Software System?"
+GOOD (6 words): "What Should My Ordering System Include?"
+
+RULE 2 — TITLE CASE (proper, not all-caps):
+Capitalize: nouns, verbs, adjectives, adverbs, first word
+Lowercase: a, an, the, and, but, or, for, nor, on, at, to, by, in, of, vs
+WRONG: "What Is The Best Pos System For Small Restaurants?"
+RIGHT: "What's the Best POS System for Small Restaurants?"
+WRONG: "How Do I Choose The Right Online Ordering Software?"
+RIGHT: "How Do I Choose the Right Ordering Software?"
+The query phrase "${query}" follows normal Title Case rules inside questions.
+WRONG: "Is Hybrid mobile app development Dead?"
+RIGHT: "Is Hybrid Mobile App Development Dead?"
+
+RULE 3 — BUYER POV ONLY, NEVER DEVELOPER POV:
+BANNED developer questions:
+- "What Tech Stack Should I Use?"
+- "How Do I Write a Functional Requirement Document?"
+- "Is Python Good for Mobile Development?"
+- "How Does Serverless Architecture Work?"
+- "What Are the Differences Between Front End and Back End?"
+
+RULE 4 — BANNED QUESTION PATTERNS (reject any matching these):
+- "What Are the Best [X] Tips/Tools/Trends/Practices?"
+- "What Is the [X] Process?"
+- "The Role of [X] in [Y]"
+- "The Importance of [X]"
+- "What Are the Benefits of [X]?" (too generic — make it specific)
+- "What Are the Advantages of [X]?" (too generic)
+- "How Does [X] Support [Y]?" (sounds like documentation)
+- "What Are the Career Opportunities in [X]?"
+- Any question that sounds like a Wikipedia section heading
+
+RULE 5 — UNIQUE search_intent PER QUESTION:
+Every search_intent must start with a DIFFERENT verb.
+Must be 4-8 plain English words describing buyer's real goal.
+BAD: "Astro Benefits" (too short, category label)
+BAD: "Understanding the benefits of pos systems" (generic)
+GOOD: "checking if monthly fees are worth it"
+GOOD: "worried about losing data during migration"
+GOOD: "comparing costs before making a decision"
+Banned opener: "trying to figure out" — never use this phrase.
+
+---
+
+MANDATORY BUYER JOURNEY — include at least 2 per category:
+
+1. AWARENESS: "Do I even need this? What is it?"
+2. COST/BUDGET: "How much? Hidden fees? Can I afford it?"
+3. COMPARISON: "X vs Y — specific named products"
+4. TIMELINE: "How long does it take?"
+5. HIRING/VENDOR: "Who do I trust? Red flags?"
+6. DIY vs PRO: "Can I do this myself?"
+7. POST-LAUNCH: "What happens after? Maintenance costs?"
+8. RISK: "What if X goes wrong? How do I protect myself?"
+9. FEATURES: "What do I actually need vs nice-to-have?"
+10. TROUBLESHOOTING: "Why is X broken? How do I fix Y?"
+11. FEATURE EDUCATION: "How does [specific named feature] work?" or "What is [specific component] and do I need it?"
+
+---
+
+OUTPUT STRUCTURE — generate in this EXACT order:
+
 {
-  "business": "string",
+  "business": "${query}",
+  "synonym_map": ["list 8 natural buyer-vocabulary synonyms here — generate SECOND"],
   "cached": false,
   "status": "complete",
-  "threads_analyzed": ${actualThreadsAnalyzed},
-  "subreddits": ["string"],
-  "sources": [{ "subreddit": "string", "title": "string", "url": "string" }],
-  "grounded_questions": [
-    {
-      "source_type": "reddit | paa | related_search | autocomplete",
-      "source_title": "string",
-      "pain_point": "string",
-      "question": "string (Title Case format, e.g. 'How Much Does It Cost to Build a Laundry App?')",
-      "search_intent": "string (A descriptive phrase, e.g. 'Budget planning for app development')",
-      "geo_strategy": "string",
-      "category_bucket": "Pricing | Timeline | Hiring | Vendor Selection | Validation | Competition | Maintenance | Features | Launch | Risk"
-    }
+  "threads_analyzed": \${actualThreadsAnalyzed},
+  "subreddits": [],
+  "sources": \${JSON.stringify(uniqueSources.slice(0, 20))},
+  "bonus_topics": [
+    "10 specific actionable blog post titles here — generate THIRD"
   ],
-  "bonus_topics": ["string"]
+  "questions": [
+    {
+      "question": "Title Case question under 10 words ending with ?",
+      "search_intent": "unique 4-8 word buyer goal description"
+    }
+  ]
 }
 
-Rules:
-1. Generate only evidence-backed questions.
+QUANTITY:
+- bonus_topics: EXACTLY 10 — generate BEFORE questions
+- questions: EXACTLY 35-40
 
-Preferred range:
-30-40 questions.
+BONUS TOPICS RULES:
+Specific, actionable blog titles covering angles NOT in the questions.
 
-Generate as many highly relevant questions as possible from the provided context (aim for 25-30). 
-To reach this count without repetition, explore different business angles instead of rewording the same question. For example, instead of asking about cost multiple times, ask about timelines, hidden fees, finding partners, avoiding scams, measuring ROI, and scaling.
-If the evidence only supports 20 strong, unique questions, DO NOT generate redundant filler.
-2. Every generated question MUST be directly inspired by and grounded in a specific Reddit thread, PAA, or Autocomplete suggestion. 
-However, DO NOT just copy the source title's phrasing. You MUST translate the underlying pain point into a PUNCHY, CONVERSATIONAL, 5th-GRADE READING LEVEL question. 
-- Write it EXACTLY as a stressed-out business owner would type it into Google. Google searches are SHORT.
-- KEEP IT SHORT: Try to keep questions under 10 words. People don't type essays into Google.
-- Strip out ALL corporate jargon (e.g., never use words like "leverage", "boost", "utilize", "synergy", "optimize", "achieving", "strategies").
-- TRANSLATION EXAMPLES:
-  * Reddit Title: "How to leverage food delivery apps to boost sales"
-    -> Bad: "How Can I Boost My Restaurant's Sales with a Food Delivery App?"
-    -> Good: "Do Food Delivery Apps Actually Make Restaurants Money?"
-  * Reddit Title: "What strategies contributed to DoorDash's success?"
-    -> Bad: "What Strategies Contributed to DoorDash's Early Success in Food Delivery?"
-    -> Good: "How Did DoorDash Get Its First Customers?"
-3. REALISTIC SEARCH FORMATTING
+bonus_topics MUST be blog post or article TITLES — not questions.
+They should read like headlines, not search queries.
 
-The generated questions must look exactly like actual Google queries or PAA (People Also Ask) questions. 
-They should be formal yet highly practical, formatted in Title Case.
+WRONG FORMAT (questions):
+"What's the Best CRM for Real Estate Teams on a Budget?"
+"Why Are Real Estate CRMs So Expensive?"
 
-Prefer descriptive search intent labels instead of single words. 
-Example intents: "Budget planning for app development", "Finding developers or agencies", "Selecting the right partner".
+CORRECT FORMAT (titles):
+"What the Best Real Estate CRMs Have in Common"
+"Why Your Real Estate CRM Fails During Peak Season"
+"The Hidden Costs Nobody Tells You About Property Management Software"
+"Moving From Yardi to a Custom CRM: What You Actually Lose"
+"When Cheap Listing Platforms Cost You More Than Premium Ones"
 
-Good Question Examples:
-- "How Much Does It Cost to Build a Laundry App?"
-- "Should I Hire a Freelancer or an App Development Agency?"
-- "Red Flags to Watch for When Hiring an App Development Company"
-- "What's Included in an App Development Contract You Should Know"
-- "What Happens If Your App Developer Disappears Mid-Project"
-- "How to Budget for Hidden Costs in App Development"
+Notice: titles make a statement or promise. Questions make a query.
+A title draws someone to read. A question looks like a search result.
 
-Avoid generic topics:
-- role of
-- importance of
-- latest trends
-- best practices
-- frameworks
-- methodologies
-- strategic roadmaps
-- digital transformation
-- industry analysis
-- market overview
-4. Enforce natural, conversational customer voice. Banish generic, robotic, and consultant-like templates.
-   - STRICTLY REJECT questions containing these phrases unless the exact wording literally exists in the source evidence: 'role of', 'importance of', 'benefits of', 'latest trends', 'best practices', 'methodology', 'framework', 'technology stack', 'optimization', 'user engagement', 'retention metrics', 'implementation strategy', 'roadmap', 'digital transformation', 'comprehensive guide', 'steps to develop'.
-   - IF A QUESTION SOUNDS LIKE IT BELONGS IN A CONSULTING REPORT OR ACADEMIC PAPER, REWRITE IT OR DELETE IT.
-   - STRICTLY REJECT questions asked from the perspective of a developer or programmer.
-   - ONLY generate questions from the perspective of the BUSINESS BUYER, FOUNDER, or CUSTOMER who wants to HIRE a service or understand the business/budget side of the app.
-   - FORCE THE FOLLOWING PSYCHOLOGICAL PATTERNS to match real buyer anxiety:
-     1. "Fear of Scams": Ask about red flags, disappearing developers, protecting IP, vetting experience.
-     2. "Logistics & Post-Launch": Ask about contracts, hidden costs, maintenance, licenses, and payment processing.
-     3. "Skepticism/ROI": Ask if the software is actually worth it, if it will really save money, or if a cheaper option exists.
-     4. "Decision Crossroads": Ask about Freelancer vs Agency, Custom vs White-label, MVP vs Full Build.
-   - PREFER natural queries typed by real customers/buyers.
-     * Bad (PM/Consultant style): "What criteria should I consider when choosing a mobile app development company?"
-       Good (Customer style): "What Questions Should I Ask Before Hiring an App Developer?" or "How Do I Know If an App Developer Is Qualified?"
-     * Bad: "What are the benefits of outsourcing mobile app development?"
-       Good: "Should I Hire an App Developer or an Agency?" or "Should I Hire a Startup or Established App Development Company?"
-     * Bad: "What are the costs associated with maintaining a mobile app?"
-       Good: "How Much Should I Budget for App Development?" or "How to Negotiate App Development Costs"
-     * Bad: "How to optimize pet care app for better user experience?"
-       Good: "What features does a successful pet care app need?" or "How to build a dog walking app like Rover?"
-     * Bad: "What is the difference between native and hybrid development?"
-       Good: "What's the Difference Between Native and Cross-Platform App Development?"
-   - Do NOT pollute the general questions with custom brand offerings (like "AI and machine learning features", "LMS", etc.) unless the user's business query specifically relates to them. Focus purely on the niche itself.
-5. STRICTLY NO REPETITION / REDUNDANCY: Keep only the single strongest version of any semantically similar questions (concept similarity > 80%).
-6. Category Diversity: Classify questions into the 10 buckets specified in the schema. Limit any single bucket to approximately 15% of the total questions (e.g., max 3-4 questions in any single category) to force broad coverage across pricing, timelines, hiring, mistakes, validation, maintenance, and alternatives.
-7. Generate exactly 10 bonus_topics. These MUST be derived ONLY from recurring Reddit pain points, PAA questions, or related searches in the context.
-   - NEVER generate generic SEO/agency blog categories (e.g., 'The Role of AI in...', 'Best Practices for...', 'Industry Trends...', 'Importance of Testing...').
-   - Instead, make them reflect real, practical user problems and operational details (e.g. 'pet care app monetization strategies', 'building trust in pet care marketplaces', 'app development payment structures (fixed vs. hourly)', 'portfolio review tips for evaluating developers', 'how to manage an app development project as a non-technical founder', 'how to brief a developer on your app idea', 'remote app development team management').
-8. Return ONLY raw JSON. No markdown, no code fences.`
+BONUS TOPICS BANNED PATTERNS — never use these in bonus_topics:
+- "The Benefits of..."
+- "The Role of..."  
+- "The Impact of..."
+- "The Importance of..."
+- "10 Essential..."
+- "Creating a Seamless..."
+- Any title that sounds like a LinkedIn article
 
+GOOD bonus_topics sound like they solve a specific problem:
+"Moving From Toast to Square: What You Lose and Gain"
+"Why Your POS Slows Down During Rush Hour"
+"What to Do When Your Developer Disappears"
+"Hidden Fees in Payment Gateways Nobody Warns You About"
+
+FINAL COUNT CHECK before closing JSON:
+□ bonus_topics = exactly 10?
+□ questions = 35-40?
+□ Every question under 10 words?
+□ Proper Title Case (not every word capitalized)?
+□ "${query}" appears in 5 or fewer questions?
+□ Every search_intent unique and starts with different word?
+□ At least 2 questions per buyer journey category?
+
+Return ONLY raw JSON. No markdown. No code fences. No explanation.`
+
+    console.log("\\n\\x1b[33m┌────────────────────────────────────────────────────────┐\\x1b[0m")
+    console.log("\\x1b[33m│            [STEP 4] SYNTHESIS PROMPT SENT TO LLM       │\\x1b[0m")
+    console.log("\\x1b[33m└────────────────────────────────────────────────────────┘\\x1b[0m")
+    console.log(fullSynthesisPrompt)
+    console.log("\\x1b[33m├────────────────────────────────────────────────────────┤\\x1b[0m\\n")
     const synthesisText = await callLLM({
       userPrompt: fullSynthesisPrompt,
       model: model,
@@ -1333,8 +1520,8 @@ Avoid generic topics:
       "bad", "better", "worse", "like", "such", "than", "then", "very", "too", "own"
     ])
 
-    const dynamicStopWords = new Set([...nlpStopWords])
-    const queryAndEntityWords = `${query} ${core_entity || ""}`.toLowerCase()
+    const dynamicStopWords = new Set([...nlpStopWords]);
+    const queryAndEntityWords = `${query}`.toLowerCase()
       .replace(/[^a-z0-9\s]/g, "")
       .split(/\s+/)
       .filter(w => w.length > 2)
@@ -1458,6 +1645,13 @@ Avoid generic topics:
         continue
       }
 
+      // Reject questions that are just definitions without a buyer context
+      const definitionOnlyPattern = /^what is (a|an|the) [a-z\s]+\?$/i
+      if (definitionOnlyPattern.test(questionText) && !questionText.includes("and")) {
+        console.log(`  [Reject Bare Definition] "${questionText}"`)
+        continue
+      }
+
       // Priority 2: Deduplication (Jaccard similarity check against already accepted questions)
       let isDuplicate = false
       for (const aq of validatedQuestions) {
@@ -1471,38 +1665,19 @@ Avoid generic topics:
         continue
       }
 
-      // Priority 3: Diversity (Cap per category bucket - max 2 for first pass)
-      const bucket = gq.category_bucket || "General"
-      const currentCount = bucketCounts[bucket] || 0
-      if (currentCount >= 20) {
-        console.log(`  [Reject Bucket Cap] "${questionText}" in bucket "${bucket}"`)
-        continue
-      }
-
       // If it passes all checks, accept it
-      bucketCounts[bucket] = currentCount + 1
-      const intent =
-        gq.search_intent || "Informational"
+      const intent = gq.search_intent || "Informational"
 
-      const currentIntentCount =
-        intentCounts[intent] || 0
-
-      if (currentIntentCount >= 15) {
-        console.log(
-          `[INTENT CAP] ${intent}`
-        )
+      const currentIntentCount = intentCounts[intent] || 0
+      if (currentIntentCount >= 8) {
+        console.log(`[INTENT CAP] ${intent}`)
         continue
       }
-
-      intentCounts[intent] =
-        currentIntentCount + 1
+      intentCounts[intent] = currentIntentCount + 1
 
       validatedQuestions.push({
         question: questionText,
-        search_intent: intent,
-        geo_strategy:
-          gq.geo_strategy ||
-          "Structure your answer using a direct definition paragraph."
+        search_intent: intent
       })
     }
 
@@ -1530,14 +1705,11 @@ Avoid generic topics:
           }
         }
         if (hasBannedWord) {
-          console.log(
-            "[QUESTION REJECTED - BANNED]",
-            questionText
-          )
+          console.log("[QUESTION REJECTED - BANNED]", questionText)
           continue
         }
 
-        // Still enforce deduplication (slightly relaxed to 0.45)
+        // Still enforce deduplication (slightly relaxed to 0.65)
         let isDuplicate = false
         for (const aq of validatedQuestions) {
           if (calculateSimilarity(questionText, aq.question) > 0.65) {
@@ -1546,47 +1718,22 @@ Avoid generic topics:
           }
         }
         if (isDuplicate) {
-          console.log(
-            "[QUESTION REJECTED - DUPLICATE]",
-            questionText
-          )
+          console.log("[QUESTION REJECTED - DUPLICATE]", questionText)
           continue
         }
 
-        // Relaxed bucket cap to 3 in fallback pass
-        const bucket = gq.category_bucket || "General"
-        const currentCount = bucketCounts[bucket] || 0
-        if (currentCount >= 20) {
-          console.log(
-            "[QUESTION REJECTED - BUCKET]",
-            questionText
-          )
+        const intent = gq.search_intent || "Informational"
+
+        const currentIntentCount = intentCounts[intent] || 0
+        if (currentIntentCount >= 8) {
+          console.log(`[INTENT CAP] ${intent}`)
           continue
         }
-
-        bucketCounts[bucket] = currentCount + 1
-        const intent =
-          gq.search_intent || "Informational"
-
-        const currentIntentCount =
-          intentCounts[intent] || 0
-
-        if (currentIntentCount >= 15) {
-          console.log(
-            `[INTENT CAP] ${intent}`
-          )
-          continue
-        }
-
-        intentCounts[intent] =
-          currentIntentCount + 1
+        intentCounts[intent] = currentIntentCount + 1
 
         validatedQuestions.push({
           question: questionText,
-          search_intent: intent,
-          geo_strategy:
-            gq.geo_strategy ||
-            "Structure your answer using a direct definition paragraph."
+          search_intent: intent
         })
       }
     }
@@ -1598,9 +1745,9 @@ Avoid generic topics:
       status: "complete",
       threads_analyzed: actualThreadsAnalyzed,
       subreddits: [],
-      sources: redditSources.slice(0, 20),
-      questions: validatedQuestions.slice(0, 40),
-      bonus_topics: parsedReport.bonus_topics || []
+      sources: uniqueSources.slice(0, 20),
+      bonus_topics: parsedReport.bonus_topics || [],
+      questions: validatedQuestions.slice(0, 40)
     }
 
     // Defensive normalizer fallback generator if GEO strategy or search intent is missing/placeholder
@@ -1608,7 +1755,7 @@ Avoid generic topics:
       finalReport.questions = finalReport.questions.map((q: any) => {
         let questionText = q.question || ""
         let intentText = q.search_intent || ""
-        let geoText = q.geo_strategy || ""
+        let geoText = q.content_angle || q.geo_strategy || ""
 
         if (!intentText || intentText.length < 3) {
           const qLower = questionText.toLowerCase()
@@ -1651,56 +1798,50 @@ Avoid generic topics:
           }
         }
 
-        if (!geoText || geoText.length < 8) {
+        if (!intentText || intentText.length < 3) {
           const qLower = questionText.toLowerCase()
 
           if (
             qLower.includes("cost") ||
             qLower.includes("price") ||
-            qLower.includes("budget")
+            qLower.includes("fee") ||
+            qLower.includes("budget") ||
+            qLower.includes("charge")
           ) {
-            geoText =
-              "show real pricing examples, cost breakdowns, and realistic budget ranges"
-          }
-
-          else if (
+            intentText = "Pricing"
+          } else if (
             qLower.includes("vs") ||
             qLower.includes("compare") ||
             qLower.includes("alternative") ||
             qLower.includes("better")
           ) {
-            geoText =
-              "compare options side by side with pros, cons, and real-world examples"
-          }
-
-          else if (
+            intentText = "Comparison"
+          } else if (
             qLower.includes("hire") ||
             qLower.includes("agency") ||
             qLower.includes("developer") ||
             qLower.includes("freelancer")
           ) {
-            geoText =
-              "provide evaluation checklists, hiring questions, and warning signs"
-          }
-
-          else if (
-            qLower.includes("timeline") ||
-            qLower.includes("how long")
+            intentText = "Vendor Evaluation"
+          } else if (
+            qLower.includes("mistake") ||
+            qLower.includes("risk") ||
+            qLower.includes("avoid")
           ) {
-            geoText =
-              "show realistic timelines using examples from real projects"
-          }
-
-          else {
-            geoText =
-              "answer using practical examples, screenshots, workflows, and real experiences"
+            intentText = "Risk Assessment"
+          } else if (
+            qLower.includes("how long") ||
+            qLower.includes("timeline")
+          ) {
+            intentText = "Implementation"
+          } else {
+            intentText = "Problem Solving"
           }
         }
 
         return {
           question: questionText,
-          search_intent: intentText,
-          geo_strategy: geoText
+          search_intent: intentText
         }
       })
     }
